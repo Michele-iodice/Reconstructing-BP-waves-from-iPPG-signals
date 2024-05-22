@@ -3,7 +3,7 @@ import pandas as pd
 from my_pyVHR.datasets.dataset import datasetFactory
 from scipy.signal import find_peaks
 from dataset.bp4d import BP4D
-from extraction.ptt_detector import rgb_sig_to_ptt
+from extraction.ptt_detector import rgb_sig_to_ptt # delete usage
 from extraction.sig_extractor import extract_Sig
 import matplotlib.pyplot as plt
 
