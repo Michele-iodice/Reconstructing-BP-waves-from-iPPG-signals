@@ -1,0 +1,1 @@
+{"cuda": "12.x", "packaging": "pip", "cutensor": {"version": "1.6.2", "filenames": ["cutensor.dll"]}, "cudnn": {"version": "8.8.1", "filenames": ["cudnn64_8.dll", "cudnn_ops_infer64_8.dll", "cudnn_ops_train64_8.dll", "cudnn_cnn_infer64_8.dll", "cudnn_cnn_train64_8.dll", "cudnn_adv_infer64_8.dll", "cudnn_adv_train64_8.dll"]}}

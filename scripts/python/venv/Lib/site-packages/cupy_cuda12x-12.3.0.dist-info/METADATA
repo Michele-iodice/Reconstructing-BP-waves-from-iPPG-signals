@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: cupy-cuda12x
+Version: 12.3.0
+Summary: CuPy: NumPy & SciPy for GPU
+Home-page: https://cupy.dev/
+Author: Seiya Tokui
+Author-email: tokui@preferred.jp
+Maintainer: CuPy Developers
+License: MIT License
+Project-URL: Bug Tracker, https://github.com/cupy/cupy/issues
+Project-URL: Documentation, https://docs.cupy.dev/
+Project-URL: Source Code, https://github.com/cupy/cupy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Cython
+Classifier: Topic :: Software Development
+Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: docs/source/license.rst
+Requires-Dist: numpy <1.29,>=1.20
+Requires-Dist: fastrlock >=0.5
+Provides-Extra: all
+Requires-Dist: scipy <1.14,>=1.6 ; extra == 'all'
+Requires-Dist: Cython <3,>=0.29.22 ; extra == 'all'
+Requires-Dist: optuna >=2.0 ; extra == 'all'
+Provides-Extra: stylecheck
+Requires-Dist: autopep8 ==1.5.5 ; extra == 'stylecheck'
+Requires-Dist: flake8 ==3.8.4 ; extra == 'stylecheck'
+Requires-Dist: pbr ==5.5.1 ; extra == 'stylecheck'
+Requires-Dist: pycodestyle ==2.6.0 ; extra == 'stylecheck'
+Requires-Dist: mypy ==1.4.1 ; extra == 'stylecheck'
+Requires-Dist: types-setuptools ==57.4.14 ; extra == 'stylecheck'
+Provides-Extra: test
+Requires-Dist: pytest >=7.2 ; extra == 'test'
+Requires-Dist: hypothesis <6.55.0,>=6.37.2 ; extra == 'test'
+
+.. image:: https://raw.githubusercontent.com/cupy/cupy/main/docs/image/cupy_logo_1000px.png
+   :width: 400
+
+CuPy : NumPy & SciPy for GPU
+============================
+
+`CuPy <https://cupy.dev/>`_ is a NumPy/SciPy-compatible array library for GPU-accelerated computing with Python.
+
+This is a CuPy wheel (precompiled binary) package for CUDA 12.x.
+You need to install `CUDA Toolkit 12.x <https://developer.nvidia.com/cuda-toolkit-archive>`_ to use these packages.
+
+If you have another version of CUDA, or want to build from source, refer to the `Installation Guide <https://docs.cupy.dev/en/latest/install.html>`_ for instructions.
