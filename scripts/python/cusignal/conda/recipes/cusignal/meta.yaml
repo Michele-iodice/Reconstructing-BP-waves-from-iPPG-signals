@@ -1,0 +1,48 @@
+# Copyright (c) 2023, NVIDIA CORPORATION.
+
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set py_version = environ['CONDA_PY'] %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
+{% set date_string = environ['RAPIDS_DATE_STRING'] %}
+
+package:
+  name: cusignal
+  version: {{ version }}
+
+source:
+  git_url: ../../..
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  noarch: python
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+  host:
+    - python
+    - setuptools
+  run:
+    - cupy >=12.0.0
+    - numba >=0.57.0
+    - numpy >=1.21
+    - python
+    - scipy >=1.6.0
+
+test:
+  requires:
+    - cudatoolkit ={{ cuda_version }}
+  imports:
+    - cusignal
+
+about:
+  home: https://rapids.ai/
+  license: MIT
+  license_family: MIT
+  license_file: ../../../LICENSE
+  summary: cuSignal core library
+  dev_url: https://github.com/rapidsai/cusignal

@@ -1,0 +1,13 @@
+bin
+dist
+eggs
+lib
+lib64
+*.pyo
+*.pyc
+*.egg-info
+*.fatbin
+docs/build
+*.ipynb_checkpoints
+docs/_html
+docs/_text

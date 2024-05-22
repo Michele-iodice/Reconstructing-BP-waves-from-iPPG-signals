@@ -1,0 +1,268 @@
+# Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
+from math import ceil
+
+import cupy as cp
+import numpy as np
+
+from ..utils._caches import _cupy_kernel_cache
+from ..utils.helper_tools import (
+    _get_function,
+    _get_max_gdx,
+    _get_max_gdy,
+    _get_tpb_bpg,
+    _print_atts,
+)
+
+_SUPPORTED_TYPES = ["float32", "float64", "complex64", "complex128"]
+
+
+def _pad_h(h, pp, up):
+    """Store coefficients in a transposed, flipped arrangement.
+    For example, suppose upRate is 3, and the
+    input number of coefficients is 10, represented as h[0], ..., h[9].
+    Then the internal buffer will look like this::
+       h[9], h[6], h[3], h[0],   // flipped phase 0 coefs
+       0,    h[7], h[4], h[1],   // flipped phase 1 coefs (zero-padded)
+       0,    h[8], h[5], h[2],   // flipped phase 2 coefs (zero-padded)
+    """
+    h_padlen = len(h) + (-len(h) % up)
+    h_full = pp.zeros(h_padlen, h.dtype)
+    h_full[: len(h)] = h
+    h_full = h_full.reshape(-1, up).T[:, ::-1].ravel()
+    return h_full
+
+
+def _output_len(len_h, in_len, up, down):
+    return (((in_len - 1) * up + len_h) - 1) // down + 1
+
+
+class _cupy_upfirdn_wrapper(object):
+    def __init__(self, grid, block, kernel):
+        if isinstance(grid, int):
+            grid = (grid,)
+        if isinstance(block, int):
+            block = (block,)
+
+        self.grid = grid
+        self.block = block
+        self.kernel = kernel
+
+    def __call__(
+        self,
+        x,
+        h_trans_flip,
+        up,
+        down,
+        axis,
+        x_shape_a,
+        h_per_phase,
+        padded_len,
+        out,
+    ):
+
+        kernel_args = (
+            x,
+            h_trans_flip,
+            up,
+            down,
+            axis,
+            x_shape_a,
+            h_per_phase,
+            padded_len,
+            out,
+            out.shape[0],
+        )
+
+        self.kernel(self.grid, self.block, kernel_args)
+
+
+class _cupy_upfirdn2d_wrapper(object):
+    def __init__(self, grid, block, kernel):
+        if isinstance(grid, int):
+            grid = (grid,)
+        if isinstance(block, int):
+            block = (block,)
+
+        self.grid = grid
+        self.block = block
+        self.kernel = kernel
+
+    def __call__(
+        self,
+        x,
+        h_trans_flip,
+        up,
+        down,
+        axis,
+        x_shape_a,
+        h_per_phase,
+        padded_len,
+        out,
+    ):
+
+        kernel_args = (
+            x,
+            x.shape[1],
+            h_trans_flip,
+            up,
+            down,
+            axis,
+            x_shape_a,
+            h_per_phase,
+            padded_len,
+            out,
+            out.shape[0],
+            out.shape[1],
+        )
+
+        self.kernel(self.grid, self.block, kernel_args)
+
+
+def _populate_kernel_cache(np_type, k_type):
+
+    if np_type not in _SUPPORTED_TYPES:
+        raise ValueError("Datatype {} not found for '{}'".format(np_type, k_type))
+
+    if (str(np_type), k_type) in _cupy_kernel_cache:
+        return
+
+    _cupy_kernel_cache[(str(np_type), k_type)] = _get_function(
+        "/filtering/_upfirdn.fatbin",
+        "_cupy_" + k_type + "_" + str(np_type),
+    )
+
+
+def _get_backend_kernel(
+    dtype,
+    grid,
+    block,
+    k_type,
+):
+
+    kernel = _cupy_kernel_cache[(str(dtype), k_type)]
+    if kernel:
+        if k_type == "upfirdn1D":
+            return _cupy_upfirdn_wrapper(grid, block, kernel)
+        elif k_type == "upfirdn2D":
+            return _cupy_upfirdn2d_wrapper(grid, block, kernel)
+    else:
+        raise ValueError("Kernel {} not found in _cupy_kernel_cache".format(k_type))
+
+
+class _UpFIRDn(object):
+    def __init__(self, h, x_dtype, up, down):
+        """Helper for resampling"""
+
+        if isinstance(h, cp.ndarray):
+            pp = cp
+        else:
+            pp = np
+
+        h = pp.asarray(h)
+        if h.ndim != 1 or h.size == 0:
+            raise ValueError("h must be 1D with non-zero length")
+
+        self._output_type = pp.result_type(h.dtype, x_dtype, pp.float32)
+        h = pp.asarray(h, self._output_type)
+        self._up = int(up)
+        self._down = int(down)
+        if self._up < 1 or self._down < 1:
+            raise ValueError("Both up and down must be >= 1")
+        # This both transposes, and "flips" each phase for filtering
+        self._h_trans_flip = _pad_h(h, pp, self._up)
+        self._h_trans_flip = cp.asarray(self._h_trans_flip)
+        self._h_trans_flip = cp.ascontiguousarray(self._h_trans_flip)
+        self._h_len_orig = len(h)
+
+    def apply_filter(
+        self,
+        x,
+        axis,
+    ):
+        """Apply the prepared filter to the specified axis of a nD signal x"""
+
+        x = cp.asarray(x, self._output_type)
+
+        output_len = _output_len(self._h_len_orig, x.shape[axis], self._up, self._down)
+        output_shape = list(x.shape)
+        output_shape[axis] = output_len
+        out = cp.empty(output_shape, dtype=self._output_type, order="C")
+        axis = axis % x.ndim
+
+        # Precompute variables on CPU
+        x_shape_a = x.shape[axis]
+        h_per_phase = len(self._h_trans_flip) // self._up
+        padded_len = x.shape[axis] + (len(self._h_trans_flip) // self._up) - 1
+
+        if out.ndim > 1:
+            threadsperblock = (8, 8)
+            blocks = ceil(out.shape[0] / threadsperblock[0])
+            blockspergrid_x = blocks if blocks < _get_max_gdx() else _get_max_gdx()
+
+            blocks = ceil(out.shape[1] / threadsperblock[1])
+            blockspergrid_y = blocks if blocks < _get_max_gdy() else _get_max_gdy()
+
+            blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+        else:
+            threadsperblock, blockspergrid = _get_tpb_bpg()
+
+        if out.ndim == 1:
+            k_type = "upfirdn1D"
+
+            _populate_kernel_cache(out.dtype, k_type)
+
+            kernel = _get_backend_kernel(
+                out.dtype,
+                blockspergrid,
+                threadsperblock,
+                k_type,
+            )
+        elif out.ndim == 2:
+            k_type = "upfirdn2D"
+
+            _populate_kernel_cache(out.dtype, k_type)
+
+            kernel = _get_backend_kernel(
+                out.dtype,
+                blockspergrid,
+                threadsperblock,
+                k_type,
+            )
+        else:
+            raise NotImplementedError("upfirdn() requires ndim <= 2")
+
+        kernel(
+            x,
+            self._h_trans_flip,
+            self._up,
+            self._down,
+            axis,
+            x_shape_a,
+            h_per_phase,
+            padded_len,
+            out,
+        )
+
+        _print_atts(kernel)
+
+        return out
