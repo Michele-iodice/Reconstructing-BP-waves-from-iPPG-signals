@@ -25,21 +25,21 @@ network and the wavelet representation of imaging photoplethysmographic signals,
 # Requirements
 Different packages must be installed to properly run the codes :
 
--`pip install opencv-python`
--`pip install numpy`
--`pip install plotly`
--`pip install os`
--`pip install pandas`
--`pip install importlib`
--`pip install abc`
--`pip install numba`
--`pip install mediapipe`
--`pip install matplotlib`
--`pip install scipy`
--`pip install scikit-learn`
--`pip install cupy`
--`pip install torch`
--`pip install requests`
--`pip install segmentation-models`
+- `pip install opencv-python`
+- `pip install numpy`
+- `pip install plotly`
+- `pip install os`
+- `pip install pandas`
+- `pip install importlib`
+- `pip install abc`
+- `pip install numba`
+- `pip install mediapipe`
+- `pip install matplotlib`
+- `pip install scipy`
+- `pip install scikit-learn`
+- `pip install cupy`
+- `pip install torch`
+- `pip install requests`
+- `pip install segmentation-models`
 
 work in progress...
