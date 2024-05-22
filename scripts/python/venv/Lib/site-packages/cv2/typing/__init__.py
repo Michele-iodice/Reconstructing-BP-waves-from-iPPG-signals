@@ -56,12 +56,12 @@ __all__ = [
     "map_int_and_double",
 ]
 
-import cv2.mat_wrapper
-import numpy
+import cv2.gapi.wip.draw
+import typing as _typing
 import cv2.dnn
 import cv2
-import typing as _typing
-import cv2.gapi.wip.draw
+import numpy
+import cv2.mat_wrapper
 
 
 if _typing.TYPE_CHECKING:
