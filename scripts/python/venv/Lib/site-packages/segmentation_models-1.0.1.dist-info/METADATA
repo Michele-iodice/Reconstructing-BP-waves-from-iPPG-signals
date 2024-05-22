@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: segmentation-models
+Version: 1.0.1
+Summary: Image segmentation models with pre-trained backbones with Keras.
+Home-page: https://github.com/qubvel/segmentation_models
+Author: Pavel Yakubovskiy
+Author-email: qubvel@gmail.com
+License: MIT
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.0.0
+Description-Content-Type: text/x-rst
+Requires-Dist: keras-applications (<=1.0.8,>=1.0.7)
+Requires-Dist: image-classifiers (==1.0.0)
+Requires-Dist: efficientnet (==1.0.0)
+Provides-Extra: tests
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Dist: scikit-image ; extra == 'tests'
+
+Image segmentation models with pre-trained backbones with Keras.
+
+
