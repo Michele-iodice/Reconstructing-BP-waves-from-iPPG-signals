@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import scipy.io
 import json
+import matplotlib.pyplot as plt
 
 # GLOBAL VARIABLES
 VERBOSE = True
@@ -75,6 +76,23 @@ def predict_and_save_results(model, test_loader, device, output_file):
                 results.append({'prediction': pred.cpu().numpy()})
 
     scipy.io.savemat(output_file, {'results': results})
+
+
+    # Prepara i dati per il plot
+    predictions = [result['prediction'] for result in results]
+
+    # Assumendo che le previsioni siano array monodimensionali, altrimenti adatta il codice
+    if isinstance(predictions[0], (list, np.ndarray)):
+        predictions = [pred[0] for pred in predictions]
+
+    # Genera il plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(predictions, 'bo-', label='Predictions')
+    plt.xlabel('Sample Index')
+    plt.ylabel('Prediction')
+    plt.title('Model Predictions')
+    plt.legend()
+    plt.show()
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
