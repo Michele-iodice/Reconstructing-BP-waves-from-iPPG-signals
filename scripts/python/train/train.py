@@ -1,111 +1,79 @@
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-from segmentation_models_pytorch import Unet
+import tensorflow as tf
 import scipy.io
 
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.layers import Input, Conv2D
+from tensorflow.python.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import CSVLogger
+from tensorflow.keras.optimizers import Adam
+
+from segmentation_models.models.unet import Unet        
+# from segmentation_models.models.unetpp import Unetpp
+# from segmentation_models.models.pspnet import PSPNet
+# from segmentation_models.models.fpn import FPN
+# from segmentation_models.models.linknet import Linknet 
+
+
+# Disable eager execution (Adam optimizer cannot be used if this option is enabled)
+tf.compat.v1.disable_eager_execution()
+tf.executing_eagerly()
+
+# Run over a specific GPU
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+
 # GLOBAL VARIABLES
-BACKBONE = 'resnext101_32x4d'
+BACKBONE = 'resnext101' # 'vgg16', 'vgg19', 'resnet101', 'seresnet101', 'resnext101', 'seresnext101', 'inceptionresnetv2', 'inceptionv3', 'densenet201'
 FREEZE_ENCODER = False
-VERBOSE = True
+VERBOSE = 2
 EPOCHS = 500
 BATCH_SIZE = 16
-LEARNING_RATE = 1e-3
 
 
-def load_data(file_path):
-    data = scipy.io.loadmat(file_path)
-    x_data = np.zeros((data['CWT_ppg_training'].shape[1], data['CWT_ppg_training'][0, 0]['cfs'][0, 0].shape[0],
-                       data['CWT_ppg_training'][0, 0]['cfs'][0, 0].shape[1], 2))
-    y_data = np.zeros((data['CWT_bp_training'].shape[1], data['CWT_bp_training'][0, 0]['cfs'][0, 0].shape[0],
-                       data['CWT_bp_training'][0, 0]['cfs'][0, 0].shape[1], 2))
+# LOAD TRAINING DATA
+data = scipy.io.loadmat('data_training.mat')
 
-    for i in range(data['CWT_ppg_training'].shape[1]):
-        x_data[i, :, :, 0] = np.real(data['CWT_ppg_training'][0, i]['cfs'][0, 0])
-        x_data[i, :, :, 1] = np.imag(data['CWT_ppg_training'][0, i]['cfs'][0, 0])
-        y_data[i, :, :, 0] = np.real(data['CWT_bp_training'][0, i]['cfs'][0, 0])
-        y_data[i, :, :, 1] = np.imag(data['CWT_bp_training'][0, i]['cfs'][0, 0])
+xtrain = np.zeros((data['CWT_ppg_training'].shape[1], data['CWT_ppg_training'][0,0]['cfs'][0,0].shape[0], data['CWT_ppg_training'][0,0]['cfs'][0,0].shape[1],2))
+ytrain = np.zeros((data['CWT_bp_training'].shape[1], data['CWT_bp_training'][0,0]['cfs'][0,0].shape[0], data['CWT_bp_training'][0,0]['cfs'][0,0].shape[1],2))
 
-    return x_data, y_data
+for i in range(data['CWT_ppg_training'].shape[1]):
+    xtrain[i,:,:,0] = np.real(data['CWT_ppg_training'][0,i]['cfs'][0,0])
+    xtrain[i,:,:,1] = np.imag(data['CWT_ppg_training'][0,i]['cfs'][0,0])
+    ytrain[i,:,:,0] = np.real(data['CWT_bp_training'][0,i]['cfs'][0,0])
+    ytrain[i,:,:,1] = np.imag(data['CWT_bp_training'][0,i]['cfs'][0,0])
 
 
-def create_dataloaders(xtrain, ytrain, xvalid, yvalid):
-    xtrain_tensor = torch.tensor(xtrain, dtype=torch.float32)
-    ytrain_tensor = torch.tensor(ytrain, dtype=torch.float32)
-    xvalid_tensor = torch.tensor(xvalid, dtype=torch.float32)
-    yvalid_tensor = torch.tensor(yvalid, dtype=torch.float32)
+# LOAD VALIDATION DATA
+data = scipy.io.loadmat('data_validation.mat')
 
-    train_dataset = TensorDataset(xtrain_tensor, ytrain_tensor)
-    valid_dataset = TensorDataset(xvalid_tensor, yvalid_tensor)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
+xvalid = np.zeros((data['CWT_ppg_validation'].shape[1], data['CWT_ppg_validation'][0,0]['cfs'][0,0].shape[0], data['CWT_ppg_validation'][0,0]['cfs'][0,0].shape[1],2))
+yvalid = np.zeros((data['CWT_bp_validation'].shape[1], data['CWT_bp_validation'][0,0]['cfs'][0,0].shape[0], data['CWT_bp_validation'][0,0]['cfs'][0,0].shape[1],2))
 
-    return train_loader, valid_loader
-
-
-class ChannelAdaptation(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ChannelAdaptation, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-
-    def forward(self, x):
-        return self.conv(x)
+for i in range(data['CWT_ppg_validation'].shape[1]):
+    xvalid[i,:,:,0] = np.real(data['CWT_ppg_validation'][0,i]['cfs'][0,0])
+    xvalid[i,:,:,1] = np.imag(data['CWT_ppg_validation'][0,i]['cfs'][0,0])
+    yvalid[i,:,:,0] = np.real(data['CWT_bp_validation'][0,i]['cfs'][0,0])
+    yvalid[i,:,:,1] = np.imag(data['CWT_bp_validation'][0,i]['cfs'][0,0])
 
 
-def train_model(model, train_loader, valid_loader, criterion, optimizer, device):
-    for epoch in range(EPOCHS):
-        model.train()
-        train_loss = 0
-        for xb, yb in train_loader:
-            xb, yb = xb.to(device), yb.to(device)
-            optimizer.zero_grad()
-            preds = model(xb)
-            loss = criterion(preds, yb)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
+# DEFINE AND TRAIN MODEL
+model = Unet(BACKBONE, classes=xtrain.shape[3], encoder_weights='imagenet', encoder_freeze=FREEZE_ENCODER, activation=None)
 
-        model.eval()
-        valid_loss = 0
-        with torch.no_grad():
-            for xb, yb in valid_loader:
-                xb, yb = xb.to(device), yb.to(device)
-                preds = model(xb)
-                loss = criterion(preds, yb)
-                valid_loss += loss.item()
+# Channel adaptation
+inp = Input(shape=(None, None, xtrain.shape[-1]))
+l1 = Conv2D(3, (1, 1))(inp) # map N channels data to 3 channels
+out = model(l1)
+model = Model(inp, out, name=model.name)
 
-        if VERBOSE:
-            print(
-                f"Epoch {epoch + 1}/{EPOCHS}, Train Loss: {train_loss / len(train_loader):.4f}, Validation Loss: {valid_loss / len(valid_loader):.4f}")
+model_checkpoint = ModelCheckpoint('weights.h5', monitor='val_loss', save_best_only=True, mode='auto')  
+history_checkpoint = CSVLogger('history.csv', append=False)
 
-        # Save model checkpoint
-        torch.save(model.state_dict(), 'weights.pth')
+model.compile(optimizer=Adam(lr=1e-3), loss='mean_squared_error', metrics=['mean_absolute_error'])
+model.summary()
 
+model_json = model.to_json()
+with open('model.json', 'w') as json_file:
+    json_file.write(model_json)
 
-def save_model_architecture(model, filepath):
-    with open(filepath, 'w') as f:
-        f.write(str(model))
-
-
-# Main script
-xtrain, ytrain = load_data('data_training.mat')
-xvalid, yvalid = load_data('data_validation.mat')
-
-train_loader, valid_loader = create_dataloaders(xtrain, ytrain, xvalid, yvalid)
-
-model = Unet(BACKBONE, classes=xtrain.shape[3], encoder_weights='imagenet', encoder_freeze=FREEZE_ENCODER)
-
-channel_adapter = ChannelAdaptation(xtrain.shape[3], 3)
-model = nn.Sequential(channel_adapter, model)
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = model.to(device)
-
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-train_model(model, train_loader, valid_loader, criterion, optimizer, device)
-
-save_model_architecture(model, 'model_architecture.json')
+history = model.fit(xtrain, ytrain, batch_size=BATCH_SIZE, epochs=EPOCHS, validation_data=(xvalid, yvalid), callbacks=[model_checkpoint, history_checkpoint], verbose=VERBOSE)
