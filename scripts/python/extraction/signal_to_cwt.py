@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import interpolate, sparse
 import pywt
+import matplotlib.pyplot as plt
 
 
 def signal_to_cwt(signal, overlap, norm, detrend, fps):
@@ -63,6 +64,25 @@ def signal_to_cwt(signal, overlap, norm, detrend, fps):
 
     return CWT
 
+
+def plotCWT(cwt_sig):
+    joy = np.linspace(1, 5, len(cwt_sig[0][0]))
+    time = np.linspace(0, 2.5, len(cwt_sig[0][0][0]))
+    scalogram = np.mean(cwt_sig, axis=0)
+    scalogram = np.mean(scalogram, axis=0)
+    scalogram_real = np.abs(scalogram)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(scalogram_real, aspect='auto', extent=[time.min(), time.max(), joy.min(), joy.max()],
+               origin='lower', cmap='jet')
+    plt.title('CWT signal')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Frequency (Hz)')
+    plt.colorbar(label='Amplitude')
+    plt.show()
+
+
 # Example usage
 # signal = np.random.randn(1000)
 # CWT = signal_to_cwt(signal, overlap=0, norm=1, detrend=1, fps=100)
+# plotCWT(CWT)
+
