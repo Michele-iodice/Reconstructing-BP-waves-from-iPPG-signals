@@ -26,11 +26,11 @@ class DecoderBlock(nn.Module):
         else:
             conv_input_channels = input_channels
 
-        self.conv1 = nn.Conv2d(conv_input_channels, output_channels, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(conv_input_channels, output_channels, kernel_size=(3, 3), padding=1)
         self.bn1 = nn.BatchNorm2d(output_channels)
         self.relu = nn.ReLU(inplace=True)
 
-        self.conv2 = nn.Conv2d(output_channels, output_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(output_channels, output_channels, kernel_size=(3, 3), padding=1)
         self.bn2 = nn.BatchNorm2d(output_channels)
 
     def forward(self, x, encoder_output=None):

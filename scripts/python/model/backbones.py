@@ -86,10 +86,10 @@ if __name__ == '__main__':
     num_classes = 100
     model = Backbones(backbone_name='resnext101_32x8d', pretrained=True, freeze_backbone=True)
 
-    output_features = model.get_output_features()
+    output_feature = model.get_output_features()
 
     classifier = nn.Sequential(
-        nn.Linear(output_features, 512),
+        nn.Linear(output_feature, 512),
         nn.ReLU(),
         nn.Dropout(0.5),
         nn.Linear(512, num_classes)

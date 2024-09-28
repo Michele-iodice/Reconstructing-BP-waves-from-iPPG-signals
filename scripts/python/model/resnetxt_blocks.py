@@ -15,15 +15,15 @@ class ResNeXtBlock(nn.Module):
         self.group_width = in_channels // cardinality
 
         self.convs1 = nn.ModuleList([
-            nn.Conv2d(in_channels, self.group_width, kernel_size=1, bias=False) for _ in range(cardinality)
+            nn.Conv2d(in_channels, self.group_width, kernel_size=(1, 1), bias=False) for _ in range(cardinality)
         ])
         self.convs2 = nn.ModuleList([
-            nn.Conv2d(self.group_width, 4, kernel_size=3, padding=1, bias=False) for _ in range(cardinality)
+            nn.Conv2d(self.group_width, 4, kernel_size=(3, 3), padding=1, bias=False) for _ in range(cardinality)
         ])
 
-        self.final_conv = nn.Conv2d(cardinality * 4, output_channels, kernel_size=1, bias=False)
+        self.final_conv = nn.Conv2d(cardinality * 4, output_channels, kernel_size=(1, 1), bias=False)
 
-        self.input_conv = nn.Conv2d(in_channels, output_channels, kernel_size=1, bias=False)
+        self.input_conv = nn.Conv2d(in_channels, output_channels, kernel_size=(1, 1), bias=False)
 
     def forward(self, x):
 
@@ -83,8 +83,9 @@ class CustomResNeXtNetwork(nn.Module):
     :return: (torch.Tensor) Return the final output of each group
     """
 
-    def __init__(self, cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3):
+    def __init__(self, in_channels, cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3):
         """
+        :param input_channels: channels of the input tensor
         :param cardinality: number of path of the ResnetBlock
         :param n_blocks1: number of blocks of the first group
         :param n_blocks2: number of blocks of the second group
@@ -93,7 +94,7 @@ class CustomResNeXtNetwork(nn.Module):
         """
         super(CustomResNeXtNetwork, self).__init__()
 
-        self.group1 = ResNeXtGroup(in_channels=64, cardinality=cardinality, output_channels=256, num_blocks=n_blocks1)
+        self.group1 = ResNeXtGroup(in_channels=in_channels, cardinality=cardinality, output_channels=256, num_blocks=n_blocks1)
 
         self.group2 = ResNeXtGroup(in_channels=256, cardinality=cardinality, output_channels=512, num_blocks=n_blocks2,
                                    downsample=True)
@@ -116,9 +117,10 @@ class CustomResNeXtNetwork(nn.Module):
         return out1, out2, out3, out4
 
 
-def create_resnext_network(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3):
+def create_resnext_network(input_channels, cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3):
     """
     Creation of a ResNeXt Network.
+    :param input_channels: channels of the input tensor
     :param cardinality: number of path of the ResnetBlock
     :param n_blocks1: number of blocks of the first group
     :param n_blocks2: number of blocks of the second group
@@ -126,21 +128,22 @@ def create_resnext_network(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=2
     :param n_blocks4: number of blocks of the fourth group
     :return: (torch.Tensor) Return the final output of each group
     """
-    return CustomResNeXtNetwork(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
+    return CustomResNeXtNetwork(in_channels=input_channels, cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
                                 n_blocks3=n_blocks3, n_blocks4=n_blocks4)
 
 
 # Example of using library
 if __name__ == "__main__":
-
-    model = create_resnext_network(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3)
-
     x = torch.randn(1, 64, 64, 64)
+    in_channels = x.shape[1]
+
+    model = create_resnext_network(input_channels=in_channels, cardinality=32)
 
     out1, out2, out3, out4 = model(x)
-    print(f'Output gruppo 1: {out1.shape}')  # Dovrebbe essere [1, 256, 64, 64]
-    print(f'Output gruppo 2: {out2.shape}')  # Dovrebbe essere [1, 512, 32, 32]
-    print(f'Output gruppo 3: {out3.shape}')  # Dovrebbe essere [1, 1024, 16, 16]
-    print(f'Output gruppo 4: {out4.shape}')  # Dovrebbe essere [1, 2048, 8, 8]
+
+    print(f'Output gruppo 1: {out1.shape}')
+    print(f'Output gruppo 2: {out2.shape}')
+    print(f'Output gruppo 3: {out3.shape}')
+    print(f'Output gruppo 4: {out4.shape}')
 
 

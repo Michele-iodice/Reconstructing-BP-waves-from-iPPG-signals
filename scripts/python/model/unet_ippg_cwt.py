@@ -1,31 +1,75 @@
-import torch
 import torch.nn as nn
 from resnetxt_blocks import create_resnext_network
 from decoder_blocks import create_decoder_network
-
-# Creazione del modello
-model = create_resnext_network(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3)
-
-# Input
-x = torch.randn(1, 64, 64, 64)
-
-# Esegui la forward pass
-out1, out2, out3, out4 = model(x)
+from backbones import Backbones
 
 
-# utilizzo decoder
-# Assuming encoder outputs are given as follows
-encoder_outputs = [torch.rand(1, 1024, 16, 16),  # Output from encoder 1
-                       torch.rand(1, 512, 32, 32),  # Output from encoder 2
-                       torch.rand(1, 256, 64, 64),  # Output from encoder 3
-                       torch.rand(1, 128, 128, 128)]  # Output from encoder 4
+class UNet(nn.Module):
+    def __init__(self, cardinality, n_blocks1, n_blocks2, n_blocks3, n_blocks4,
+                 output_channels, backbone_name, pretrained=True, freeze_backbone=True):
+        super(UNet, self).__init__()
 
-input_tensor = torch.rand(1, 2048, 8, 8)  # Input to the first decoder block
-output_channels = [256, 128, 64, 32, 16]  # Desired output channels
+        # Initialize the backbone
+        self.backbone = Backbones(backbone_name=backbone_name, pretrained=pretrained, freeze_backbone=freeze_backbone)
 
-# Create the network
-decoder_network = create_decoder_network(encoder_outputs, input_channels=2048, output_channels_list=output_channels)
+        # Input convolution layer
+        in_conv = self.backbone.get_output_features()
+        self.conv1 = nn.Conv2d(in_conv, 64, kernel_size=(3, 3), padding=1)
 
-# Forward pass
-output = decoder_network(input_tensor, encoder_outputs)
-print("Output shape:", output.shape)  # Should be [1, 16, H, W] depending on the input size
+        # Max pooling layer
+        self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # Create ResNeXt blocks
+        self.resnet_blocks = create_resnext_network(
+            input_channels=64,  # Fixed input channels from conv1
+            cardinality=cardinality,
+            n_blocks1=n_blocks1,
+            n_blocks2=n_blocks2,
+            n_blocks3=n_blocks3,
+            n_blocks4=n_blocks4
+        )
+
+        # Create Decoder network
+        self.decoder_blocks = create_decoder_network(
+            encoder_outputs=None,  # Placeholder; will be set in forward pass
+            input_channels=None,  # Placeholder; will be set in forward pass
+            output_channels_list=output_channels
+        )
+
+        # Final convolution layer
+        self.final_conv = nn.Conv2d(2, 2, kernel_size=(3, 3), padding=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # Backbone features
+        x = self.backbone(x)
+
+        # Input convolution
+        x = self.conv1(x)
+
+        # Max pooling
+        x = self.max_pool(x)
+
+        # Pass through ResNeXt blocks
+        encoder_outputs = self.resnet_blocks(x)
+
+        # Set decoder inputs
+        decoder_input_channels = encoder_outputs[3].shape[1]
+        self.decoder_blocks.set_encoder_outputs(encoder_outputs)  # Custom method needed
+        self.decoder_blocks.set_input_channels(decoder_input_channels)  # Custom method needed
+
+        # Pass through Decoder blocks
+        decoder_output = self.decoder_blocks(encoder_outputs[3])
+
+        # Final convolution
+        x = self.final_conv(decoder_output)
+        return self.sigmoid(x)
+
+
+# Example of how to instantiate and use the DecoderNetwork
+if __name__ == "__main__":
+    output= UNet(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3,
+                 output_channels=[256, 128, 64, 32, 16], backbone_name='resnext101_32x8d',
+                 pretrained=True, freeze_backbone=True)
+
+    print("Output shape:", output.shape) # Should be [1, 2, 256, 256]
