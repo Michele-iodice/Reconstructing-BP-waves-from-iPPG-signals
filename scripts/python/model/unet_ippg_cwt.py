@@ -9,14 +9,11 @@ class UNet(nn.Module):
                  output_channels, backbone_name, pretrained=True, freeze_backbone=True):
         super(UNet, self).__init__()
 
-        # Initialize the backbone
         self.backbone = Backbones(backbone_name=backbone_name, pretrained=pretrained, freeze_backbone=freeze_backbone)
 
-        # Input convolution layer
         in_conv = self.backbone.get_output_features()
         self.conv1 = nn.Conv2d(in_conv, 64, kernel_size=(3, 3), padding=1)
 
-        # Max pooling layer
         self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Create ResNeXt blocks
@@ -31,8 +28,8 @@ class UNet(nn.Module):
 
         # Create Decoder network
         self.decoder_blocks = create_decoder_network(
-            encoder_outputs=None,  # Placeholder; will be set in forward pass
-            input_channels=None,  # Placeholder; will be set in forward pass
+            encoder_outputs=None,
+            input_channels=None,
             output_channels_list=output_channels
         )
 
@@ -41,13 +38,10 @@ class UNet(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        # Backbone features
         x = self.backbone(x)
 
-        # Input convolution
         x = self.conv1(x)
 
-        # Max pooling
         x = self.max_pool(x)
 
         # Pass through ResNeXt blocks
@@ -55,15 +49,26 @@ class UNet(nn.Module):
 
         # Set decoder inputs
         decoder_input_channels = encoder_outputs[3].shape[1]
-        self.decoder_blocks.set_encoder_outputs(encoder_outputs)  # Custom method needed
-        self.decoder_blocks.set_input_channels(decoder_input_channels)  # Custom method needed
+        self.decoder_blocks.set_encoder_outputs(encoder_outputs)
+        self.decoder_blocks.set_input_channels(decoder_input_channels)
 
         # Pass through Decoder blocks
         decoder_output = self.decoder_blocks(encoder_outputs[3])
 
-        # Final convolution
         x = self.final_conv(decoder_output)
         return self.sigmoid(x)
+
+
+class ModelAdapter(nn.Module):
+    def __init__(self, base_model, in_channels, out_channels=3):
+        super(ModelAdapter, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.base_model = base_model
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.base_model(x)
+        return x
 
 
 # Example of how to instantiate and use the DecoderNetwork

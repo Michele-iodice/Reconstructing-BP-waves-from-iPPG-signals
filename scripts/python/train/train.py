@@ -62,7 +62,7 @@ model = Unet(BACKBONE, classes=xtrain.shape[3], encoder_weights='imagenet', enco
 
 # Channel adaptation
 inp = Input(shape=(None, None, xtrain.shape[-1]))
-l1 = Conv2D(3, (1, 1))(inp) # map N channels data to 3 channels
+l1 = Conv2D(3, (1, 1))(inp)  # map N channels data to 3 channels
 out = model(l1)
 model = Model(inp, out, name=model.name)
 

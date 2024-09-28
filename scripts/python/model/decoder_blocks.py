@@ -35,7 +35,6 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x, encoder_output=None):
         """
-
         :param x: decoder input
         :param encoder_output: optional encoder output to concatenate
         :return: decoder output
@@ -83,7 +82,6 @@ class DecoderNetwork(nn.Module):
 
     def forward(self, x, encoder_outputs):
         """
-
         :param x: (torch.Tensor) decoder Input (es: 8x8x2048).
         :param encoder_outputs: (list of torch.Tensor) List of outputs from encoder blocks to concatenate.
         :return: (torch.Tensor) decoder network final output

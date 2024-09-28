@@ -1,15 +1,69 @@
-import torch
-import numpy as np
 import torch.nn as nn
-from model.unet_ippg_cwt import UNet
+import torch.optim as optim
+import json
+from torch.utils.data import DataLoader, TensorDataset
+from model.unet_ippg_cwt import UNet, ModelAdapter
+from extraction.feature_extraction import extract_feature_on_dataset
+from model.utils import split_data, train_model
+from config import Configuration
+import numpy as np
 
-model=UNet(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3,
-           output_channels=[256, 128, 64, 32, 16], backbone_name='resnext101_32x8d',
-           pretrained=True, freeze_backbone=True)
-data = np.expand_dims(data, axis=0)
-inp = torch.tensor(data, dtype=torch.float32)
-l1 = nn.Conv2D(3, (1, 1))(inp)  # map N channels data to 3 channels
-out = model(l1)
-model = model(inp, out, name="UNet")
+config = Configuration(
+    'C:/Users/39392/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+# Parameter
+BATCH_SIZE = np.int32(config.uNetdict['BATCH_SIZE'])
+EPOCHS = np.int32(config.uNetdict['EPOCH'])
+VERBOSE = config.get_boolean('uNetdict', 'VERBOSE')
+data_path = config.uNetdict['data_path']
+cardinality = np.int32(config.uNetdict['cardinality'])
+n_blocks1 = np.int32(config.uNetdict['n_blocks1'])
+n_blocks2 = np.int32(config.uNetdict['n_blocks2'])
+n_blocks3 = np.int32(config.uNetdict['n_blocks3'])
+n_blocks4 = np.int32(config.uNetdict['n_blocks4'])
+output_channels = config.get_array('output_channels')
+backbone_name = config.uNetdict['backbone_name']
+pretrained = config.get_boolean('uNetdict', 'pretrained')
+freeze_backbone = config.get_boolean('uNetdict', 'freeze_backbone')
+checkpoint_path = config.uNetdict['checkpoint_path']
+model_path = config.uNetdict['model_path']
+
+
+data = extract_feature_on_dataset(config)
+data.to_csv(data_path, index=False)
+x_train, x_test, x_val, y_train, y_test, y_val= split_data(data)
+
+in_channels = x_train.shape[-1]
+base_model=UNet(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
+                n_blocks3=n_blocks3, n_blocks4=n_blocks4,
+                output_channels=output_channels, backbone_name=backbone_name,
+                pretrained=pretrained, freeze_backbone=freeze_backbone)
+model = ModelAdapter(base_model, in_channels)
 
 print("Output shape:", model.shape)  # Should be [1, 2, 256, 256]
+
+
+# loss and optimisation function definition
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+# Save model architecture
+model_structure = {
+    "model_name": model.__class__.__name__,
+    "model_parameters": str(model)
+}
+
+with open(model_path, 'w') as json_file:
+    json.dump(model_structure, json_file, indent=4)
+
+
+validation_data = (x_val, y_val)
+
+train_dataset = TensorDataset(x_train, y_train)
+valid_dataset = TensorDataset(x_val, y_val)
+
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
+
+
+# training
+history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path, VERBOSE=VERBOSE)

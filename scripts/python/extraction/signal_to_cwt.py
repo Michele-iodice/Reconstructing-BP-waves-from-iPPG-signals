@@ -84,5 +84,6 @@ def plotCWT(cwt_sig):
 # Example usage
 # signal = np.random.randn(1000)
 # CWT = signal_to_cwt(signal, overlap=0, norm=1, detrend=1, fps=100)
+# print(np.array(CWT).shape)
 # plotCWT(CWT)
 
