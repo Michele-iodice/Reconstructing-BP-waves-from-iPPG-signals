@@ -4,6 +4,28 @@ import pywt
 import matplotlib.pyplot as plt
 
 
+def compute_scales():
+    """
+    COMPUTE SCALES
+    :return: scales
+    """
+    sc_min = -1
+    sc_max = -1
+    sc = np.arange(0.2, 1000.01, 0.01)
+    MorletFourierFactor = 4 * np.pi / (6 + np.sqrt(2 + 6 ** 2))
+    freqs = 1 / (sc * MorletFourierFactor)
+    for dummy in range(len(freqs)):
+        if freqs[dummy] < 0.6 and sc_max == -1:
+            sc_max = sc[dummy]
+        elif freqs[dummy] < 8 and sc_min == -1:
+            sc_min = sc[dummy]
+
+    sc = np.array([sc_min, sc_max])
+    scales = np.arange(sc[0], sc[1], 0.00555)
+
+    return scales
+
+
 def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
@@ -14,22 +36,9 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     fps: sampling frequency of the signal
     """
 
-    # COMPUTE SCALES
-    sc_min = -1
-    sc_max = -1
-    sc = np.arange(0.2, 1000.01, 0.01)
-    MorletFourierFactor = 4 * np.pi / (6 + np.sqrt(2 + 6**2))
-    freqs = 1 / (sc * MorletFourierFactor)
-    for dummy in range(len(freqs)):
-        if freqs[dummy] < 0.6 and sc_max == -1:
-            sc_max = sc[dummy]
-        elif freqs[dummy] < 8 and sc_min == -1:
-            sc_min = sc[dummy]
-    sc = np.array([sc_min, sc_max])
-
     # RESAMPLING (100 Hz)
     time = np.arange(0, len(signal)/fps, 1/100)
-    scales = np.arange(sc[0], sc[1], 0.00555)
+    scales = compute_scales()
     interp_func = interpolate.interp1d(np.arange(0, len(signal)/fps, 1/fps), signal, kind='linear')
     signal = interp_func(time)
     fps = 100
@@ -69,7 +78,7 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     return CWT, scales
 
 
-def inverse_cwt(CWT, scales, fps):
+def inverse_cwt(CWT, fps):
     """
     Approximate the inverse CWT using a summation over scales and time.
 
@@ -81,9 +90,10 @@ def inverse_cwt(CWT, scales, fps):
     """
 
     time = np.arange(0, len(CWT) / fps, 1 / 100)
-    wavelet = pywt.ContinuousWavelet('cmor')
+    wavelet = pywt.ContinuousWavelet('cmor', dtype='float64')
     wavelet_function, _ = wavelet.wavefun(level=10)  # morlet function psi(t)
     C_psi = 0.776  # approximation of C_psi for cmor wavelet
+    scales = compute_scales()
     reconstructed_signal = np.zeros(len(time))
 
     # Loop over each scale
@@ -130,6 +140,6 @@ def plotComparison(original_signal, reconstructed_signal):
 # print(np.array(CWT).shape)
 # plotCWT(CWT)
 # Calcola il segnale ricostruito
-# reconstructed_signal = inverse_cwt(CWT, scales, fps=100)
+# reconstructed_signal = inverse_cwt(CWT, fps=100)
 # plotComparison(CWT, reconstructed_signal, time)
 

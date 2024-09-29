@@ -122,11 +122,11 @@ def split_data(data):
     test_data = data[data['subject_id'].isin(test_subjects)]
 
     x_train = np.array(list(train_data['CWT']))
-    y_train = np.array(train_data['BP'])
+    y_train = np.array(train_data['CWT_BP'])
     x_val = np.array(list(val_data['CWT']))
-    y_val = np.array(val_data['BP'])
+    y_val = np.array(val_data['CWT_BP'])
     x_test = np.array(list(test_data['CWT']))
-    y_test = np.array(test_data['BP'])
+    y_test = np.array(test_data['CWT_BP'])
 
     return x_train, x_test, x_val, y_train, y_test, y_val
 
