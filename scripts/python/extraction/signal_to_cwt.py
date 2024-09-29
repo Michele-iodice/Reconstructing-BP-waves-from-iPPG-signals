@@ -4,12 +4,13 @@ import pywt
 import matplotlib.pyplot as plt
 
 
-def signal_to_cwt(signal, overlap, norm, detrend, fps):
+def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
     norm: 0 for no standardization (BP); 1 for standardization (iPPG)
     detrend: 0 for no detrending (BP) 1 for detrending (iPPG)
+    recover: 0 for no mean recovery (iPPG), 1 to add mean back to CWT (BP)
     fps: sampling frequency of the signal
     """
 
@@ -28,6 +29,7 @@ def signal_to_cwt(signal, overlap, norm, detrend, fps):
 
     # RESAMPLING (100 Hz)
     time = np.arange(0, len(signal)/fps, 1/100)
+    scales = np.arange(sc[0], sc[1], 0.00555)
     interp_func = interpolate.interp1d(np.arange(0, len(signal)/fps, 1/fps), signal, kind='linear')
     signal = interp_func(time)
     fps = 100
@@ -56,13 +58,40 @@ def signal_to_cwt(signal, overlap, norm, detrend, fps):
             signal_window = (signal_window - np.mean(signal_window)) / np.std(signal_window)
 
         # Compute CWT
-        scales = np.arange(sc[0], sc[1], 0.00555)
         cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor', sampling_period=1/fps)
+
+        if recover==1:
+            cwt_result = cwt_result + np.mean(signal_window)
         CWT.append(cwt_result)
 
         i += overlap
 
-    return CWT
+    return CWT, scales, time
+
+
+def inverse_cwt(CWT, scales, time, wavelet_function, C_psi):
+    """
+    Approximate the inverse CWT using a summation over scales and time.
+
+    CWT: Coefficients of the Continuous Wavelet Transform
+    scales: Scales used in the CWT
+    time: Array of time points corresponding to the original signal
+    wavelet_function: The mother wavelet function psi(t)
+    C_psi: The admissibility constant C_psi
+    """
+    reconstructed_signal = np.zeros(len(time))
+
+    # Loop over each scale
+    for idx, scale in enumerate(scales):
+        for tau in range(CWT.shape[1]):
+            # Compute the contribution of each coefficient CWT_x(tau, scale)
+            wavelet_contribution = wavelet_function((time - tau) / scale) / np.sqrt(np.abs(scale))
+            reconstructed_signal += (CWT[idx, tau] * wavelet_contribution) / (scale ** 2)
+
+    # Normalize by the admissibility constant C_psi
+    reconstructed_signal /= C_psi
+
+    return reconstructed_signal
 
 
 def plotCWT(cwt_sig):
@@ -81,9 +110,25 @@ def plotCWT(cwt_sig):
     plt.show()
 
 
+def plotComparison(original_signal, reconstructed_signal):
+    time_len= max(len(original_signal[0][0][0]), len(reconstructed_signal[0][0][0]))
+    time = np.linspace(0, 2.5, time_len)
+    plt.figure(figsize=(12, 6))
+    plt.plot(time, original_signal, label='Original Signal', linestyle='--', color='red')
+    plt.plot(time, reconstructed_signal, label='Reconstructed Signal', color='blue')
+    plt.legend()
+    plt.show()
+
 # Example usage
 # signal = np.random.randn(1000)
-# CWT = signal_to_cwt(signal, overlap=0, norm=1, detrend=1, fps=100)
+# CWT, scales, time = signal_to_cwt(signal, overlap=256, norm=0, detrend=0, fps=100, recover=0)
 # print(np.array(CWT).shape)
 # plotCWT(CWT)
+# wavelet = pywt.ContinuousWavelet('cmor')
+# wavelet_function, _ = wavelet.wavefun(level=10)  # Funzione madre psi(t)
+# Calcola la costante di ammissibilità C_psi
+# C_psi = 0.776  # Approssimazione di C_psi per cmor wavelet
+# Calcola il segnale ricostruito
+# reconstructed_signal = inverse_cwt(CWT, scales, time, wavelet_function, C_psi)
+# plotComparison(CWT, reconstructed_signal, time)
 

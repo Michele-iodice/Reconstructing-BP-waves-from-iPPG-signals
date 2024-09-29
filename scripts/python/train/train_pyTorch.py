@@ -4,7 +4,7 @@ import json
 from torch.utils.data import DataLoader, TensorDataset
 from model.unet_ippg_cwt import UNet, ModelAdapter
 from extraction.feature_extraction import extract_feature_on_dataset
-from model.utils import split_data, train_model
+from model.utils import split_data, train_model, plot_train
 from config import Configuration
 import numpy as np
 
@@ -67,3 +67,4 @@ valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # training
 history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path, VERBOSE=VERBOSE)
+plot_train(history)

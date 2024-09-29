@@ -1,7 +1,9 @@
 import csv
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
 
 
 def save_checkpoint(model, optimizer, epoch, loss, file_path):
@@ -21,8 +23,6 @@ def save_checkpoint(model, optimizer, epoch, loss, file_path):
         'loss': loss,
     }, file_path)
 
-    return "File salved."
-
 
 def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs, checkpoint_path, VERBOSE=True):
     """
@@ -37,11 +37,15 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
     :param VERBOSE: if it is true show the progress line
     :return: loss chronology
     """
-    history = {'train_loss': [], 'val_loss': []}
+    history = {'train_loss': [],
+               'val_loss': [],
+               'train_mae': [],
+               'val_mae': []}
 
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
+        running_mae = 0.0
 
         for inputs, targets in train_loader:
             optimizer.zero_grad()
@@ -51,25 +55,34 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
             optimizer.step()
 
             running_loss += loss.item()
-
+            running_mae += mean_absolute_error(targets.cpu().detach().numpy(),
+                                               outputs.cpu().detach().numpy()) * inputs.size(0)
         epoch_loss = running_loss / len(train_loader)
+        epoch_mae = running_mae / len(train_loader)
         history['train_loss'].append(epoch_loss)
+        history['train_mae'].append(epoch_mae)
 
         # Validation
         model.eval()
         val_loss = 0.0
+        val_mae = 0.0
         with torch.no_grad():
             for inputs, targets in valid_loader:
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 val_loss += loss.item()
+                val_mae += mean_absolute_error(targets.cpu().numpy(), outputs.cpu().numpy()) * inputs.size(0)
 
         val_loss /= len(valid_loader)
+        val_mae /= len(valid_loader)
         history['val_loss'].append(val_loss)
+        history['val_mae'].append(val_mae)
 
         # show progress
         if VERBOSE:
-            print(f'Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss:.4f}, Val Loss: {val_loss:.4f}')
+            print(f'Epoch {epoch + 1}/{epochs}, '
+                  f'Train Loss: {epoch_loss:.4f}, Val Loss: {val_loss:.4f}, '
+                  f'Train MAE: {epoch_mae:.4f}, Val MAE: {val_mae:.4f}')
 
         # save model if it is the best
         if epoch == 0 or val_loss < min(history['val_loss'][:-1]):
@@ -79,9 +92,11 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
     # Save loss chronology in a CSV file
     with open('history.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Epoch', 'Train Loss', 'Val Loss'])
+        writer.writerow(['Epoch', 'Train Loss', 'Train MAE', 'Val Loss', 'Val MAE'])
         for i in range(epochs):
-            writer.writerow([i + 1, history['train_loss'][i], history['val_loss'][i]])
+            writer.writerow([i + 1,
+                             history['train_loss'][i], history['train_mae'][i],
+                             history['val_loss'][i], history['val_mae'][i]])
 
     return history
 
@@ -114,3 +129,47 @@ def split_data(data):
     y_test = np.array(test_data['BP'])
 
     return x_train, x_test, x_val, y_train, y_test, y_val
+
+
+def plot_train(history):
+    # Loss plot
+    plt.figure(figsize=(10, 5))
+    plt.plot(history['train_loss'], label='Train Loss')
+    plt.plot(history['val_loss'], label='Validation Loss')
+    plt.title('Train vs Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
+
+    # MAE plot
+    plt.figure(figsize=(10, 5))
+    plt.plot(history['train_mae'], label='Train MAE')
+    plt.plot(history['val_mae'], label='Validation MAE')
+    plt.title('Train vs Validation MAE')
+    plt.xlabel('Epochs')
+    plt.ylabel('Mean Absolute Error')
+    plt.legend()
+    plt.show()
+
+
+def plotComparison(GT_signal, predicted_signal):
+    time_len= max(len(GT_signal[0][0][0]), len(predicted_signal[0][0][0]))
+    time = np.linspace(0, 2.5, time_len)
+    plt.figure(figsize=(12, 6))
+    plt.plot(time, predicted_signal, label='Pred Signal', color='blue')
+    plt.plot(time, GT_signal, label='GT Signal', linestyle='--', color='red')
+    plt.legend()
+    plt.show()
+
+
+def plotTest(iPPG_signal, GT_BP, reconstructed_BP):
+    time_len = max(len(iPPG_signal[0][0][0]), len(GT_BP[0][0][0]))
+    time_len = max(time_len, len(reconstructed_BP[0][0][0]))
+    time = np.linspace(0, 2.5, time_len)
+    plt.figure(figsize=(12, 6))
+    plt.plot(time, iPPG_signal, label='iPPG Signal', color='black')
+    plt.plot(time, reconstructed_BP, label='Pred Signal', color='blue')
+    plt.plot(time, GT_BP, label='GT Signal', linestyle='--', color='red')
+    plt.legend()
+    plt.show()

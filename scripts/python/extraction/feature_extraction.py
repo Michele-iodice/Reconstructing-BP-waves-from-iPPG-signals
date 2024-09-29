@@ -60,12 +60,15 @@ def extract_feature_on_dataset(conf):
             fname = dataset.getSigFilename(idx)
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSigValue()
+            cwt_BP = signal_to_cwt(bpGT, overlap=50, norm=0, detrend=0, recover=1,
+                                   fps=np.int32(conf.uNetdict['frameRate']))
             videoFileName = dataset.getVideoFilename(idx)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(videoFileName)
             sigEX = extract_Sig(videoFileName, conf)
-            cwt = signal_to_cwt(sigEX, overlap=0, norm=1, detrend=1, fps=np.int32(conf.sigdict['frameRate']))
-            newLine = pd.DataFrame({'CWT': cwt, 'sex': sex, 'BP': bpGT, 'subject_id': subjectId}, index=[idx])
+            cwt_ippg = signal_to_cwt(sigEX, overlap=50, norm=1, detrend=1, recover=0,
+                                     fps=np.int32(conf.uNetdict['frameRate']))
+            newLine = pd.DataFrame({'CWT': cwt_ippg, 'sex': sex, 'BP': cwt_BP, 'subject_id': subjectId}, index=[0])
             df = pd.concat([df, newLine], ignore_index=True)
 
     return df
@@ -77,16 +80,20 @@ def extract_feature_on_video(video, bp, conf):
         :param: video: the path of the video to compute
         :return: the dataframe 'data' with columns: CWT, sex, BP ground truth, and subject_id
         """
-    df = pd.DataFrame(columns=['CWT', 'sex', 'BP', 'subject_id'])
+    df = pd.DataFrame(columns=['CWT', 'CWT_BP', 'sex', 'BP', 'original', 'subject_id'])
 
     fname = video
     sigGT = BP4D.readSigfile(BP4D, bp)
     bpGT = sigGT.getSigValue()
+    cwt_BP, scales, time= signal_to_cwt(bpGT, overlap=50, norm=0, detrend=0,
+                                        recover=1, fps=np.int32(conf.uNetdict['frameRate']))
     subjectId = getSubjectId(fname)
     sex = getSex(fname)
     sigEX = extract_Sig(fname, conf)
-    cwt = signal_to_cwt(sigEX, overlap=0, norm=1, detrend=1, fps=np.int32(conf.sigdict['frameRate']))
-    newLine = pd.DataFrame({'CWT': cwt, 'sex': sex, 'BP': bpGT, 'subject_id': subjectId}, index=[0])
+    cwt_ippg, scales2, time2 = signal_to_cwt(sigEX, overlap=50, norm=1, detrend=1,
+                                             recover=0, fps=np.int32(conf.uNetdict['frameRate']))
+    newLine = pd.DataFrame({'CWT': cwt_ippg, 'CWT_BP': cwt_BP, 'sex': sex, 'BP': bpGT,
+                            'original': sigEX, 'subject_id': subjectId}, index=[0])
     df = pd.concat([df, newLine], ignore_index=True)
 
     return df
