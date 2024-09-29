@@ -66,10 +66,10 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
 
         i += overlap
 
-    return CWT, scales, time
+    return CWT, scales
 
 
-def inverse_cwt(CWT, scales, time, wavelet_function, C_psi):
+def inverse_cwt(CWT, scales, fps):
     """
     Approximate the inverse CWT using a summation over scales and time.
 
@@ -79,6 +79,11 @@ def inverse_cwt(CWT, scales, time, wavelet_function, C_psi):
     wavelet_function: The mother wavelet function psi(t)
     C_psi: The admissibility constant C_psi
     """
+
+    time = np.arange(0, len(CWT) / fps, 1 / 100)
+    wavelet = pywt.ContinuousWavelet('cmor')
+    wavelet_function, _ = wavelet.wavefun(level=10)  # morlet function psi(t)
+    C_psi = 0.776  # approximation of C_psi for cmor wavelet
     reconstructed_signal = np.zeros(len(time))
 
     # Loop over each scale
@@ -121,14 +126,10 @@ def plotComparison(original_signal, reconstructed_signal):
 
 # Example usage
 # signal = np.random.randn(1000)
-# CWT, scales, time = signal_to_cwt(signal, overlap=256, norm=0, detrend=0, fps=100, recover=0)
+# CWT, scales = signal_to_cwt(signal, overlap=256, norm=0, detrend=0, fps=100, recover=0)
 # print(np.array(CWT).shape)
 # plotCWT(CWT)
-# wavelet = pywt.ContinuousWavelet('cmor')
-# wavelet_function, _ = wavelet.wavefun(level=10)  # Funzione madre psi(t)
-# Calcola la costante di ammissibilità C_psi
-# C_psi = 0.776  # Approssimazione di C_psi per cmor wavelet
 # Calcola il segnale ricostruito
-# reconstructed_signal = inverse_cwt(CWT, scales, time, wavelet_function, C_psi)
+# reconstructed_signal = inverse_cwt(CWT, scales, fps=100)
 # plotComparison(CWT, reconstructed_signal, time)
 
