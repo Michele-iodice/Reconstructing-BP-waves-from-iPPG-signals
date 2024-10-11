@@ -1,10 +1,11 @@
 import torch.nn as nn
+import torch
 import torch.optim as optim
 import json
 from torch.utils.data import DataLoader, TensorDataset
 from model.unet_ippg_cwt import UNet, ModelAdapter
 from extraction.feature_extraction import extract_feature_on_dataset
-from model.utils import split_data, train_model, plot_train
+from model.utils import split_data, train_model, plot_train, test_model
 from config import Configuration
 import numpy as np
 
@@ -60,11 +61,16 @@ validation_data = (x_val, y_val)
 
 train_dataset = TensorDataset(x_train, y_train)
 valid_dataset = TensorDataset(x_val, y_val)
+test_dataset = TensorDataset(x_test, y_test)
 
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
-
+test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # training
 history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path, VERBOSE=VERBOSE)
 plot_train(history)
+
+# test
+model.load_state_dict(torch.load(checkpoint_path)['model_state_dict'])
+test_model(model, criterion, test_loader)

@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
+import pandas as pd
 
 
 def save_checkpoint(model, optimizer, epoch, loss, file_path):
@@ -99,6 +100,32 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
                              history['val_loss'][i], history['val_mae'][i]])
 
     return history
+
+
+def test_model(model, criterion, test_loader):
+    model.eval()
+
+    test_loss = 0.0
+    test_mae = 0.0
+
+    with torch.no_grad():
+        for inputs, targets in test_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            test_loss += loss.item() * inputs.size(0)
+            test_mae += mean_absolute_error(targets.cpu().numpy(), outputs.cpu().numpy()) * inputs.size(0)
+
+    test_loss /= len(test_loader.dataset)
+    test_mae /= len(test_loader.dataset)
+
+    test_results = {
+        'Test Loss': [test_loss],
+        'Test MAE': [test_mae]
+    }
+
+    df_results = pd.DataFrame(test_results)
+    df_results.to_csv('test_results.csv', index=False)
+    print(f'Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}')
 
 
 def split_data(data):
