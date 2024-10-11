@@ -94,7 +94,7 @@ def predict_dataset(dataset, save_results):
 if __name__ == "__main__":
     config = Configuration(
         'C:/Users/39392/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
-    videoFileName = "C:/Users/39392/Desktop/University/MAGISTRALE/NaturalInteraction/progetto/datasetBP4D+/F001/T7/vid.avi"
-    bp = "C:/Users/39392/Desktop/University/MAGISTRALE/NaturalInteraction/progetto/datasetBP4D+/F001/T7/BP_mmHg.txt"
+    videoFileName = "D:/datasetBP4D+/F001/T7/vid.avi"
+    bp = "D:/datasetBP4D+/F001/T7/BP_mmHg.txt"
     save_results = "../dataset/results_prediction_data.csv"
     predict_video(config, videoFileName, bp)
