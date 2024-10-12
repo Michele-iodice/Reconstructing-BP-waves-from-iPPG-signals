@@ -1,4 +1,3 @@
-import cupy
 import numpy as np
 import torchvision.transforms as transforms
 import torch
@@ -232,9 +231,5 @@ class SkinExtractionConvexHull:
         cropped_skin_im = skin_image
         if rmin >= 0 and rmax >= 0 and cmin >= 0 and cmax >= 0 and rmax-rmin >= 0 and cmax-cmin >= 0:
             cropped_skin_im = skin_image[int(rmin):int(rmax), int(cmin):int(cmax)]
-
-        if self.device == 'GPU':
-            cropped_skin_im = cupy.asnumpy(cropped_skin_im)
-            skin_image = cupy.asnumpy(skin_image)
 
         return cropped_skin_im, skin_image

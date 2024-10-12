@@ -1,7 +1,7 @@
 import torch.nn as nn
-from resnetxt_blocks import create_resnext_network
-from decoder_blocks import create_decoder_network
-from backbones import Backbones
+from model.resnetxt_blocks import create_resnext_network
+from model.decoder_blocks import create_decoder_network
+from model.backbones import Backbones
 
 
 class UNet(nn.Module):
