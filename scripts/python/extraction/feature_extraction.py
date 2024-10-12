@@ -59,8 +59,8 @@ def extract_feature_on_dataset(conf):
 
             fname = dataset.getSigFilename(idx)
             sigGT = dataset.readSigfile(fname)
-            bpGT = sigGT.getSigValue()
-            cwt_BP= signal_to_cwt(bpGT, overlap=50, norm=0, detrend=0, recover=1,
+            bpGT = sigGT.getSig()
+            cwt_BP= signal_to_cwt(bpGT[0], overlap=50, norm=0, detrend=0, recover=1,
                                   fps=np.int32(conf.uNetdict['frameRate']))
             videoFileName = dataset.getVideoFilename(idx)
             subjectId = getSubjectId(videoFileName)
@@ -85,7 +85,7 @@ def extract_feature_on_video(video, bp, conf):
 
     fname = video
     sigGT = BP4D.readSigfile(BP4D, bp)
-    bpGT = sigGT.getSigValue()
+    bpGT = sigGT.getSig()
     cwt_BP= signal_to_cwt(bpGT, overlap=50, norm=0, detrend=0, recover=1, fps=np.int32(conf.uNetdict['frameRate']))
     subjectId = getSubjectId(fname)
     sex = getSex(fname)

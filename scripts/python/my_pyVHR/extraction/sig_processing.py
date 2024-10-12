@@ -1,7 +1,10 @@
-import mediapipe as mp
 from my_pyVHR.extraction.utils import *
 from my_pyVHR.extraction.skin_extraction_methods import *
 from my_pyVHR.extraction.sig_extraction_methods import *
+import cv2
+import numpy as np
+import face_alignment
+import torch
 
 """
 This module defines classes or methods used for Signal extraction and processing.
@@ -60,68 +63,69 @@ class SignalProcessing:
 
     def extract_holistic(self, videoFileName):
         """
-        This method compute the RGB-mean signal using the whole skin (holistic);
+        This method computes the RGB-mean signal using the whole skin (holistic).
 
         Args:
             videoFileName (str): video file name or path.
 
-        Returns: 
-            float32 ndarray: RGB signal as ndarray with shape [num_frames, 1, rgb_channels]. The second dimension is 1 because
-            the whole skin is considered as one estimators.
+        Returns:
+            float32 ndarray: RGB signal as ndarray with shape [num_frames, 1, rgb_channels].
+                             The second dimension is 1 because the whole skin is considered as one estimator.
         """
         self.visualize_skin_collection = []
-
         skin_ex = self.skin_extractor
 
-        mp_drawing = mp.solutions.drawing_utils
-        mp_face_mesh = mp.solutions.face_mesh
-        PRESENCE_THRESHOLD = 0.5
-        VISIBILITY_THRESHOLD = 0.5
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device=device)
 
         sig = []
         processed_frames_count = 0
 
-        with mp_face_mesh.FaceMesh(
-                max_num_faces=1,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5) as face_mesh:
-            for frame in extract_frames_yield(videoFileName):
-                # convert the BGR image to RGB.
-                image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                processed_frames_count += 1
-                width = image.shape[1]
-                height = image.shape[0]
-                # [landmarks, info], with info->x_center ,y_center, r, g, b
+        for frame in extract_frames_yield(videoFileName):
+            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            processed_frames_count += 1
+            width = image.shape[1]
+            height = image.shape[0]
+
+            landmarks = fa.get_landmarks(image)
+
+            if landmarks is not None:
+                landmarks = landmarks[0]
                 ldmks = np.zeros((468, 5), dtype=np.float32)
                 ldmks[:, 0] = -1.0
                 ldmks[:, 1] = -1.0
-                # face landmarks
-                results = face_mesh.process(image)
-                if results.multi_face_landmarks:
-                    face_landmarks = results.multi_face_landmarks[0]
-                    landmarks = [l for l in face_landmarks.landmark]
-                    for idx in range(len(landmarks)):
-                        landmark = landmarks[idx]
-                        if not ((landmark.HasField('visibility') and landmark.visibility < VISIBILITY_THRESHOLD)
-                                or (landmark.HasField('presence') and landmark.presence < PRESENCE_THRESHOLD)):
-                            coords = mp_drawing._normalized_to_pixel_coordinates(
-                                landmark.x, landmark.y, width, height)
-                            if coords:
-                                ldmks[idx, 0] = coords[1]
-                                ldmks[idx, 1] = coords[0]
-                    # skin extraction
-                    cropped_skin_im, full_skin_im = skin_ex.extract_skin(
-                        image, ldmks)
-                else:
-                    cropped_skin_im = np.zeros_like(image)
-                    full_skin_im = np.zeros_like(image)
-                if self.visualize_skin == True:
-                    self.visualize_skin_collection.append(full_skin_im)
-                # sig computing
-                sig.append(holistic_mean(
-                    cropped_skin_im, np.int32(SignalProcessingParams.RGB_LOW_TH), np.int32(SignalProcessingParams.RGB_HIGH_TH)))
-                # loop break
-                if self.tot_frames is not None and self.tot_frames > 0 and processed_frames_count >= self.tot_frames:
-                    break
+
+                for idx in range(min(len(landmarks), 468)):
+                    x_pixel = int(landmarks[idx][0])
+                    y_pixel = int(landmarks[idx][1])
+                    ldmks[idx, 0] = y_pixel
+                    ldmks[idx, 1] = x_pixel
+
+                cropped_skin_im, full_skin_im = skin_ex.extract_skin(image, ldmks)
+            else:
+                cropped_skin_im = np.zeros_like(image)
+                full_skin_im = np.zeros_like(image)
+
+            if self.visualize_skin == True:
+                self.visualize_skin_collection.append(full_skin_im)
+
+            sig.append(holistic_mean(
+                cropped_skin_im, np.int32(SignalProcessingParams.RGB_LOW_TH),
+                np.int32(SignalProcessingParams.RGB_HIGH_TH)))
+
+            if self.tot_frames is not None and self.tot_frames > 0 and processed_frames_count >= self.tot_frames:
+                break
+
         sig = np.array(sig, dtype=np.float32)
         return sig
+
+    def draw_landmarks(image, landmarks):
+        """
+        Function to draw facial landmark on image
+        Args:
+            image (ndarray): image.
+            landmarks (ndarray): landmark coordinate (x, y).
+        """
+        for (x, y) in landmarks:
+            cv2.circle(image, (int(x), int(y)), 1, (0, 255, 0), -1)  # Colore verde per i punti
+        return image
