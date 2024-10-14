@@ -61,12 +61,13 @@ class SignalProcessing:
         """
         self.skin_extractor = extractor
 
-    def extract_holistic(self, videoFileName):
+    def extract_holistic(self, videoFileName, scale_percent=50):
         """
         This method computes the RGB-mean signal using the whole skin (holistic).
 
         Args:
             videoFileName (str): video file name or path.
+            scale_percent (int): Percentage to scale down the video resolution for faster processing.
 
         Returns:
             float32 ndarray: RGB signal as ndarray with shape [num_frames, 1, rgb_channels].
@@ -83,21 +84,24 @@ class SignalProcessing:
 
         for frame in extract_frames_yield(videoFileName):
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            processed_frames_count += 1
-            width = image.shape[1]
-            height = image.shape[0]
+            width = int(image.shape[1] * scale_percent / 100)
+            height = int(image.shape[0] * scale_percent / 100)
+            dim = (width, height)
+            resized_image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
 
-            landmarks = fa.get_landmarks(image)
+            processed_frames_count += 1
+
+            landmarks = fa.get_landmarks(resized_image)
 
             if landmarks is not None:
                 landmarks = landmarks[0]
-                ldmks = np.zeros((468, 5), dtype=np.float32)
+                ldmks = np.zeros((68, 5), dtype=np.float32)
                 ldmks[:, 0] = -1.0
                 ldmks[:, 1] = -1.0
 
-                for idx in range(min(len(landmarks), 468)):
-                    x_pixel = int(landmarks[idx][0])
-                    y_pixel = int(landmarks[idx][1])
+                for idx in range(min(len(landmarks), 68)):
+                    x_pixel = int(landmarks[idx][0] * 100 / scale_percent)
+                    y_pixel = int(landmarks[idx][1] * 100 / scale_percent)
                     ldmks[idx, 0] = y_pixel
                     ldmks[idx, 1] = x_pixel
 
@@ -127,5 +131,5 @@ class SignalProcessing:
             landmarks (ndarray): landmark coordinate (x, y).
         """
         for (x, y) in landmarks:
-            cv2.circle(image, (int(x), int(y)), 1, (0, 255, 0), -1)  # Colore verde per i punti
+            cv2.circle(image, (int(x), int(y)), 1, (0, 255, 0), -1)
         return image
