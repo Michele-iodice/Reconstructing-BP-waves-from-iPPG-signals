@@ -11,27 +11,25 @@ from model.utils import split_data, train_model, plot_train, test_model
 from config import Configuration
 import numpy as np
 
-config = Configuration(
-    'C:/Users/39392/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
-# Parameter
-BATCH_SIZE = np.int32(config.uNetdict['BATCH_SIZE'])
-EPOCHS = np.int32(config.uNetdict['EPOCHS'])
-VERBOSE = config.get_boolean('UnetParameter', 'VERBOSE')
-data_path = config.uNetdict['data_path']
-cardinality = np.int32(config.uNetdict['cardinality'])
-n_blocks1 = np.int32(config.uNetdict['n_blocks1'])
-n_blocks2 = np.int32(config.uNetdict['n_blocks2'])
-n_blocks3 = np.int32(config.uNetdict['n_blocks3'])
-n_blocks4 = np.int32(config.uNetdict['n_blocks4'])
-output_channels = config.get_array('output_channels')
-backbone_name = config.uNetdict['backbone_name']
-pretrained = config.get_boolean('UnetParameter', 'pretrained')
-freeze_backbone = config.get_boolean('UnetParameter', 'freeze_backbone')
-checkpoint_path = config.uNetdict['checkpoint_path']
-model_path = config.uNetdict['model_path']
 
+def train_model(config, extract_data=False,):
+    # Parameter
+    BATCH_SIZE = np.int32(config.uNetdict['BATCH_SIZE'])
+    EPOCHS = np.int32(config.uNetdict['EPOCHS'])
+    VERBOSE = config.get_boolean('UnetParameter', 'VERBOSE')
+    data_path = config.uNetdict['data_path']
+    cardinality = np.int32(config.uNetdict['cardinality'])
+    n_blocks1 = np.int32(config.uNetdict['n_blocks1'])
+    n_blocks2 = np.int32(config.uNetdict['n_blocks2'])
+    n_blocks3 = np.int32(config.uNetdict['n_blocks3'])
+    n_blocks4 = np.int32(config.uNetdict['n_blocks4'])
+    output_channels = config.get_array('output_channels')
+    backbone_name = config.uNetdict['backbone_name']
+    pretrained = config.get_boolean('UnetParameter', 'pretrained')
+    freeze_backbone = config.get_boolean('UnetParameter', 'freeze_backbone')
+    checkpoint_path = config.uNetdict['checkpoint_path']
+    model_path = config.uNetdict['model_path']
 
-def train_model(extract_data=False):
     if extract_data is True:
         print(f"start new training")
         data = extract_feature_on_dataset(config)
@@ -91,4 +89,6 @@ def train_model(extract_data=False):
 
 
 if __name__ == "__main__":
-    train_model(extract_data=True)
+    config = Configuration(
+        'C:/Users/39392/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+    train_model(config, extract_data=True)
