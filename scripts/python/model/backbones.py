@@ -28,7 +28,7 @@ class BackboneFactory(nn.Module):
         return backbone
 
     def _remove_classifier(self, backbone_name):
-        if backbone_name.startswith('resnet') or backbone_name.startswith('efficientnet'):
+        if backbone_name.startswith('resnet') or backbone_name.startswith('resnext') or backbone_name.startswith('efficientnet'):
             in_features = self.backbone.fc.in_features
             self.backbone.fc = nn.Identity()  # Rimuove il fully connected
         elif backbone_name.startswith('vgg'):
@@ -37,6 +37,7 @@ class BackboneFactory(nn.Module):
         elif backbone_name.startswith('densenet'):
             in_features = self.backbone.classifier.in_features
             self.backbone.classifier = nn.Identity()  # Rimuove il classifier DenseNet
+
         else:
             raise ValueError(f"Non è stata implementata la rimozione del classificatore per '{backbone_name}'")
 

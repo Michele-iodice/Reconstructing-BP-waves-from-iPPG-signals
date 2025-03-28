@@ -9,6 +9,7 @@ class UNet(nn.Module):
                  output_channels, backbone_name, pretrained=True, freeze_backbone=True):
         super(UNet, self).__init__()
 
+        self.decoder_blocks = None
         self.backbone = Backbones(backbone_name=backbone_name, pretrained=pretrained, freeze_backbone=freeze_backbone)
 
         in_conv = self.backbone.get_output_features()
@@ -26,12 +27,7 @@ class UNet(nn.Module):
             n_blocks4=n_blocks4
         )
 
-        # Create Decoder network
-        self.decoder_blocks = create_decoder_network(
-            encoder_outputs=None,
-            input_channels=None,
-            output_channels_list=output_channels
-        )
+        self.output_channels = output_channels
 
         # Final convolution layer
         self.final_conv = nn.Conv2d(2, 2, kernel_size=(3, 3), padding=1)
@@ -47,10 +43,12 @@ class UNet(nn.Module):
         # Pass through ResNeXt blocks
         encoder_outputs = self.resnet_blocks(x)
 
-        # Set decoder inputs
-        decoder_input_channels = encoder_outputs[3].shape[1]
-        self.decoder_blocks.set_encoder_outputs(encoder_outputs)
-        self.decoder_blocks.set_input_channels(decoder_input_channels)
+        # Create Decoder network
+        self.decoder_blocks = create_decoder_network(
+            encoder_outputs=encoder_outputs,
+            input_channels=encoder_outputs[3].shape[1],
+            output_channels_list=self.output_channels
+        )
 
         # Pass through Decoder blocks
         decoder_output = self.decoder_blocks(encoder_outputs[3])
@@ -71,10 +69,9 @@ class ModelAdapter(nn.Module):
         return x
 
 
-# Example of how to instantiate and use the DecoderNetwork
+# Example of how to instantiate and use the UNetNetwork
 if __name__ == "__main__":
     output= UNet(cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3,
                  output_channels=[256, 128, 64, 32, 16], backbone_name='resnext101_32x8d',
                  pretrained=True, freeze_backbone=True)
-
-    print("Output shape:", output.shape) # Should be [1, 2, 256, 256]
+    print("model UNet correctly build")

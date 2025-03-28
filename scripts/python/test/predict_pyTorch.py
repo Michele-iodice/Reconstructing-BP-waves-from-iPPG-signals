@@ -17,8 +17,8 @@ def predict_video(config, videoFileName, bp ):
     n_blocks4 = np.int32(config.uNetdict['n_blocks4'])
     output_channels = config.get_array('output_channels')
     backbone_name = config.uNetdict['backbone_name']
-    pretrained = config.get_boolean('uNetdict', 'pretrained')
-    freeze_backbone = config.get_boolean('uNetdict', 'freeze_backbone')
+    pretrained = config.get_boolean('UnetParameter', 'pretrained')
+    freeze_backbone = config.get_boolean('UnetParameter', 'freeze_backbone')
     checkpoint_path = config.uNetdict['checkpoint_path']
 
     data = extract_feature_on_video(videoFileName, bp, config)
@@ -32,8 +32,6 @@ def predict_video(config, videoFileName, bp ):
                       output_channels=output_channels, backbone_name=backbone_name,
                       pretrained=pretrained, freeze_backbone=freeze_backbone)
     model = ModelAdapter(base_model, in_channels)
-
-    print("Output shape:", model.shape)  # Should be [1, 2, 256, 256]
 
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -60,8 +58,8 @@ def predict_dataset(dataset, save_results):
     n_blocks4 = np.int32(config.uNetdict['n_blocks4'])
     output_channels = config.get_array('output_channels')
     backbone_name = config.uNetdict['backbone_name']
-    pretrained = config.get_boolean('uNetdict', 'pretrained')
-    freeze_backbone = config.get_boolean('uNetdict', 'freeze_backbone')
+    pretrained = config.get_boolean('UnetParameter', 'pretrained')
+    freeze_backbone = config.get_boolean('UnetParameter', 'freeze_backbone')
     checkpoint_path = config.uNetdict['checkpoint_path']
     base_model = UNet(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
                       n_blocks3=n_blocks3, n_blocks4=n_blocks4,

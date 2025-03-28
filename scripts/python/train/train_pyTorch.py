@@ -12,7 +12,7 @@ from config import Configuration
 import numpy as np
 
 
-def train_model(config, extract_data=False,):
+def train_models(config, extract_data=False,):
     # Parameter
     BATCH_SIZE = np.int32(config.uNetdict['BATCH_SIZE'])
     EPOCHS = np.int32(config.uNetdict['EPOCHS'])
@@ -53,8 +53,6 @@ def train_model(config, extract_data=False,):
                       pretrained=pretrained, freeze_backbone=freeze_backbone)
     model = ModelAdapter(base_model, in_channels)
 
-    print("Output shape:", model.shape)  # Should be [1, 2, 256, 256]
-
     # loss and optimisation function definition
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -91,4 +89,4 @@ def train_model(config, extract_data=False,):
 if __name__ == "__main__":
     config = Configuration(
         'C:/Users/39392/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
-    train_model(config, extract_data=True)
+    train_models(config, extract_data=True)
