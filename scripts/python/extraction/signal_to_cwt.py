@@ -37,9 +37,14 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     """
 
     # RESAMPLING (100 Hz)
-    time = np.arange(0, len(signal)/fps, 1/100)
+    time = np.linspace(0, (len(signal) - 1) / fps, int(len(signal) * (100 / fps)))
     scales = compute_scales()
-    x = np.arange(0, len(signal) / fps, 1 / fps)
+    x = np.linspace(0, (len(signal) - 1) / fps, len(signal))
+    if len(x) != len(signal):
+        min_len = min(len(x), len(signal))
+        x = x[:min_len]
+        signal = signal[:min_len]
+
     interp_func = interpolate.interp1d(x, signal, kind='linear')
     signal = interp_func(time)
     fps = 100

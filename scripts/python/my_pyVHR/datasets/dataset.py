@@ -26,7 +26,7 @@ def datasetFactory(datasetName, videodataDIR, BVPdataDIR, path=None):
         else:
             moduleName = datasetName.lower()
             className = datasetName.upper()
-            relpath = str(path) + str(moduleName) + '.py'
+            relpath = str(path) + '/' + str(moduleName) + '.py'
             spec = util.spec_from_file_location(
                 moduleName, relpath)
             mod = util.module_from_spec(spec)

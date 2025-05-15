@@ -29,12 +29,12 @@ def extract_Sig(videoFileName, conf):
 
     print('\nProcessing Video ' + videoFileName)
     fps = get_fps(videoFileName)
-    sig_processing.set_total_frames(0)
+    sig_processing.set_total_frames(30*fps)
     # 3. ROI selection
     print('\nRoi processing...')
     sig = []
     # SIG extraction with holistic approach
-    sig = sig_processing.extract_holistic(videoFileName)
+    sig = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=2)
     print(' - Extraction approach: ' + roi_approach)
     print(' - Extraction method: ' + roi_method)
 

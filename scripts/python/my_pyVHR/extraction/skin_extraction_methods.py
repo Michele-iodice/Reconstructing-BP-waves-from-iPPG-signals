@@ -62,7 +62,7 @@ class SkinExtractionFaceParsing:
         self.device = device
         n_classes = 19
         self.net = BiSeNet(n_classes=n_classes)
-        save_pth = "C:/Users/39392/Documents/GitHub/INMCA_Iodice/scripts/BP_Estimators/my_pyVHR/resources/faceparsing/79999_iter.pth"
+        save_pth = "C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/my_pyVHR/resources/faceparsing/79999_iter.pth"
         if not os.path.isfile(save_pth):
             url = "https://github.com/phuselab/pyVHR/raw/master/resources/faceparsing/79999_iter.pth"
             print('Downloading faceparsing model...')

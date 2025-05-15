@@ -130,13 +130,15 @@ def get_fps(videoFileName):
     return fps
 
 
-def extract_frames_yield(videoFileName):
-    """
-    This method yield the frames of a video file name or path.
-    """
+def extract_frames_yield(videoFileName, frame_interval=10):
     vidcap = cv2.VideoCapture(videoFileName)
+    frame_count = 0
     success, image = vidcap.read()
+
     while success:
-        yield image
+        if frame_count % frame_interval == 0:
+            yield image
         success, image = vidcap.read()
+        frame_count += 1
+
     vidcap.release()

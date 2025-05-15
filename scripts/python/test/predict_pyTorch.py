@@ -3,7 +3,7 @@ from model.unet_ippg_cwt import UNet, ModelAdapter
 from config import Configuration
 import numpy as np
 import pandas as pd
-from extraction.feature_extraction import extract_feature_on_video
+from extraction.feature_extraction import extract_feature_on_video, extract_feature_on_dataset
 from model.utils import plotComparison, plotTest
 from extraction.signal_to_cwt import plotCWT
 
@@ -87,6 +87,7 @@ def predict_dataset(dataset, save_results):
         df = pd.concat([df, newLine], ignore_index=True)
 
     df.to_csv(save_results, index=False)
+
 
 
 if __name__ == "__main__":

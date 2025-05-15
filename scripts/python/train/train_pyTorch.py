@@ -88,5 +88,5 @@ def train_models(config, extract_data=False,):
 
 if __name__ == "__main__":
     config = Configuration(
-        'C:/Users/39392/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+        'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
     train_models(config, extract_data=True)

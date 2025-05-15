@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 import scipy.io
 
-from tensorflow.python.keras.optimizers import Adam
-from tensorflow.keras.models import model_from_json
-
+from tensorflow.python.keras.optimizers import  adam_v2 as Adam
+from tensorflow.python.keras.models import model_from_json
+from keras.src.layers import BatchNormalization
 
 # Disable eager execution (Adam optimizer cannot be used if this option is enabled)
 tf.compat.v1.disable_eager_execution()
@@ -20,17 +20,17 @@ BATCH_SIZE = 16
 
 
 # LOAD MODEL
-json_file = open('model.json', 'r')
+json_file = open('../models/model.json', 'r')
 loaded_model_json = json_file.read()
 json_file.close()
-model = model_from_json(loaded_model_json)
-model.load_weights('weights.h5')
+model = model_from_json(loaded_model_json,custom_objects={'BatchNormalization': BatchNormalization})
+model.load_weights('../models/weights.h5')
 model.compile(optimizer=Adam(lr=1e-3), loss='mean_squared_error')
 model.summary()
 
 
 # LOAD TEST DATA
-data = scipy.io.loadmat('data_test.mat')
+data = scipy.io.loadmat('../test/data_test.mat')
 
 xtest = np.zeros((data['CWT_ppg_test'].shape[1], data['CWT_ppg_test'][0,0]['cfs'][0,0].shape[0], data['CWT_ppg_test'][0,0]['cfs'][0,0].shape[1],2))
 ytest = np.zeros((data['CWT_bp_test'].shape[1], data['CWT_bp_test'][0,0]['cfs'][0,0].shape[0], data['CWT_bp_test'][0,0]['cfs'][0,0].shape[1],2))
@@ -49,6 +49,6 @@ for i in range(ytest.shape[0]):
     results[i] = {}
     results[i]['prediction'] = pred[0]
 
-scipy.io.savemat('results.mat',{'results':results})
+scipy.io.savemat('../test/results.mat',{'results':results})
 
 

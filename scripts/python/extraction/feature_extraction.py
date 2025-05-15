@@ -66,7 +66,8 @@ def extract_feature_on_dataset(conf):
             subjectId = getSubjectId(videoFileName)
             sex = getSex(videoFileName)
             sigEX = extract_Sig(videoFileName, conf)
-            cwt_ippg= signal_to_cwt(sigEX, overlap=50, norm=1, detrend=1, recover=0,
+            green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
+            cwt_ippg= signal_to_cwt(green_signal, overlap=50, norm=1, detrend=1, recover=0,
                                     fps=np.int32(conf.uNetdict['frameRate']))
             newLine = pd.DataFrame({'CWT': cwt_ippg, 'CWT_BP': cwt_BP, 'sex': sex, 'BP': bpGT,
                                     'original': sigEX, 'subject_id': subjectId}, index=[0])
