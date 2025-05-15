@@ -5,3 +5,4 @@ scripts/python/test/weights.h5
 scripts/python/venv/Lib/site-packages/torch/lib/dnnl.lib
 scripts/python/venv/Lib/site-packages/torch/lib/torch_cpu.dll
 scripts/python/models/weights.h5
+scripts/python/models/pytorch_model.pth
