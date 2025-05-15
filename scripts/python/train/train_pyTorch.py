@@ -44,7 +44,7 @@ def train_models(config, extract_data=False,):
         data = pd.read_csv(data_path)
         print(data)
 
-    x_train, x_test, x_val, y_train, y_test, y_val = split_data(data)
+    x_train, x_test, x_val, y_train, y_test, y_val = split_data(data, overlap=50, norm=1, recover=0)
 
     in_channels = x_train.shape[-1]
     base_model = UNet(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,

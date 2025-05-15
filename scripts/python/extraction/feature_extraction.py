@@ -2,14 +2,13 @@ import numpy as np
 import pandas as pd
 from my_pyVHR.datasets.dataset import datasetFactory
 from dataset.bp4d import BP4D
-from extraction.signal_to_cwt import signal_to_cwt
-from extraction.sig_extractor import extract_Sig
+from extraction.sig_extractor import extract_Sig, post_filtering
 
 
 def getSubjectId(videoFilename):
     """
     retrieve the id of the subject in the videoFilename
-    :param videoFilename: the path of the video
+    :param videoFilename: the path of the video.
     :return: Id of the Subject
     """
     pattern = videoFilename[86:90]
@@ -54,27 +53,23 @@ def extract_feature_on_dataset(conf):
                              path)
     dataset_len = dataset.len_dataset()
     print('dataset len: ', dataset_len)
-    df = pd.DataFrame(columns=['CWT', 'CWT_BP', 'sex', 'BP', 'original', 'subject_id'])
+    df = pd.DataFrame(columns=['sex', 'BP', 'ippg', 'subject_id'])
     for idx in range(0, dataset_len):
 
             fname = dataset.getSigFilename(idx)
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
-            cwt_BP, sig_bp= signal_to_cwt(bpGT[0], overlap=50, norm=0, detrend=0, recover=1,
-                                  fps=np.int32(conf.uNetdict['frameRate']))
+            sig_bp = post_filtering(bpGT, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
             videoFileName = dataset.getVideoFilename(idx)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(videoFileName)
             sigEX = extract_Sig(videoFileName, conf)
             green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
-            cwt_ippg, sig_ippg= signal_to_cwt(green_signal, overlap=50, norm=1, detrend=1, recover=0,
-                                    fps=np.int32(conf.uNetdict['frameRate']))
-            i=0
-            while i<len(cwt_BP) and i<len(cwt_ippg):
-                newLine = pd.DataFrame({'CWT': cwt_ippg[i], 'CWT_BP': cwt_BP[i], 'sex': sex, 'BP': sig_bp[i],
-                                    'original': sig_ippg[i], 'subject_id': subjectId}, index=[0])
-                df = pd.concat([df, newLine], ignore_index=True)
-                i = i + 1
+            sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
+
+            newLine = pd.DataFrame({'sex': sex, 'BP': sig_bp,
+                                    'ippg': sig_ippg, 'subject_id': subjectId}, index=[0])
+            df = pd.concat([df, newLine], ignore_index=True)
 
     return df
 
@@ -85,18 +80,19 @@ def extract_feature_on_video(video, bp, conf):
         :param: video: the path of the video to compute
         :return: the dataframe 'data' with columns: CWT, sex, BP ground truth, and subject_id
         """
-    df = pd.DataFrame(columns=['CWT', 'CWT_BP', 'sex', 'BP', 'original', 'subject_id'])
+    df = pd.DataFrame(columns=['sex', 'BP', 'ippg', 'subject_id'])
 
     fname = video
     sigGT = BP4D.readSigfile(BP4D, bp)
     bpGT = sigGT.getSig()
-    cwt_BP= signal_to_cwt(bpGT, overlap=50, norm=0, detrend=0, recover=1, fps=np.int32(conf.uNetdict['frameRate']))
+    sig_bp = post_filtering(bpGT, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
     subjectId = getSubjectId(fname)
     sex = getSex(fname)
     sigEX = extract_Sig(fname, conf)
-    cwt_ippg= signal_to_cwt(sigEX, overlap=50, norm=1, detrend=1, recover=0, fps=np.int32(conf.uNetdict['frameRate']))
-    newLine = pd.DataFrame({'CWT': cwt_ippg, 'CWT_BP': cwt_BP, 'sex': sex, 'BP': bpGT,
-                            'original': sigEX, 'subject_id': subjectId}, index=[0])
+    green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
+    sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
+    newLine = pd.DataFrame({'sex': sex, 'BP': sig_bp,
+                            'ippg': sig_ippg, 'subject_id': subjectId}, index=[0])
     df = pd.concat([df, newLine], ignore_index=True)
 
     return df
@@ -104,3 +100,5 @@ def extract_feature_on_video(video, bp, conf):
 # Example usage
 # data = extract_feature_on_dataset(config)
 # data.to_csv(data_path, index=False)
+
+# signal_to_cwt(green_signal, overlap=50, norm=1, recover=0)

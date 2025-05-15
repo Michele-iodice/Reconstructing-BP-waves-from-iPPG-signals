@@ -1,5 +1,4 @@
 import numpy as np
-from scipy import interpolate, sparse
 import pywt
 import matplotlib.pyplot as plt
 
@@ -25,7 +24,7 @@ def compute_scales():
     return scales
 
 
-def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
+def signal_to_cwt(signal, overlap, norm, recover):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
@@ -35,26 +34,7 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     fps: sampling frequency of the signal
     """
 
-    # RESAMPLING (100 Hz)
-    time = np.linspace(0, (len(signal) - 1) / fps, int(len(signal) * (100 / fps)))
     scales = compute_scales()
-    x = np.linspace(0, (len(signal) - 1) / fps, len(signal))
-    if len(x) != len(signal):
-        min_len = min(len(x), len(signal))
-        x = x[:min_len]
-        signal = signal[:min_len]
-
-    interp_func = interpolate.interp1d(x, signal, kind='linear')
-    signal = interp_func(time)
-    fps = 100
-
-    # DETRENDING (Tarvainen et al., 2002)
-    if detrend:
-        lambda_ = 470
-        T = len(signal)
-        I = sparse.eye(T)
-        D2 = sparse.diags([1, -2, 1], [0, 1, 2], shape=(T-2, T)).toarray()
-        signal = (I - np.linalg.inv(I + lambda_**2 * D2.T @ D2) @ signal)
 
     # OVERLAPPING
     if overlap == 0:
@@ -66,14 +46,13 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
     i = 0
     while (i + 255) < len(signal):
         signal_window = signal[i:i+256]
-        time_window = time[i:i+256]
 
         # Standardization
         if norm:
             signal_window = (signal_window - np.mean(signal_window)) / np.std(signal_window)
 
         # Compute CWT
-        cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor', sampling_period=1/fps)
+        cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor', sampling_period=1/100)
 
         if recover==1:
             cwt_result = cwt_result + np.mean(signal_window)

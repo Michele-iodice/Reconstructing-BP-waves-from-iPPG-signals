@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 import pandas as pd
+from extraction.signal_to_cwt import signal_to_cwt
 
 
 def save_checkpoint(model, optimizer, epoch, loss, file_path):
@@ -27,7 +28,7 @@ def save_checkpoint(model, optimizer, epoch, loss, file_path):
 
 def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs, checkpoint_path, VERBOSE=True):
     """
-    Function to train the model
+    Function to train the model.
     :param model: model to train
     :param criterion: criterion method to use for loss
     :param optimizer: optimizer method to use
@@ -128,7 +129,7 @@ def test_model(model, criterion, test_loader):
     print(f'Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}')
 
 
-def split_data(data):
+def split_data(data, overlap, norm, recover):
     """
     Divided the data in input follow this steps:
     step1: group the data by subjects
@@ -148,14 +149,27 @@ def split_data(data):
     val_data = data[data['subject_id'].isin(val_subjects)]
     test_data = data[data['subject_id'].isin(test_subjects)]
 
-    x_train = np.array(list(train_data['CWT']))
-    y_train = np.array(train_data['CWT_BP'])
-    x_val = np.array(list(val_data['CWT']))
-    y_val = np.array(val_data['CWT_BP'])
-    x_test = np.array(list(test_data['CWT']))
-    y_test = np.array(test_data['CWT_BP'])
+    x_train, y_train = process_data(train_data, overlap, norm, recover)
+    x_val, y_val = process_data(val_data, overlap, norm, recover)
+    x_test, y_test = process_data(test_data, overlap, norm, recover)
 
     return x_train, x_test, x_val, y_train, y_test, y_val
+
+
+def process_data(df, overlap, norm, recover):
+    x_list=[]
+    y_list=[]
+    for _, row in df.iterrows():
+        sig = row['ippg']
+        bp_sig = row['BP']
+        cwt_ippg = signal_to_cwt(sig, overlap=overlap, norm=norm, recover=recover)
+        cwt_bp = signal_to_cwt(bp_sig, overlap=overlap, norm=norm, recover=recover)
+
+        for i in range(min(len(cwt_ippg), len(cwt_bp))):
+            x_list.append(cwt_ippg[i])
+            y_list.append(cwt_bp[i])
+
+    return x_list, y_list
 
 
 def plot_train(history):

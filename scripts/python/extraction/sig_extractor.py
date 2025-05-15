@@ -5,10 +5,12 @@ from my_pyVHR.extraction.skin_extraction_methods import SkinExtractionFaceParsin
 from my_pyVHR.extraction.sig_processing import SignalProcessing
 from my_pyVHR.extraction.utils import get_fps, sig_windowing
 from BP.filters import *
+from scipy import interpolate, sparse
+from scipy.sparse.linalg import spsolve
 
 
 def extract_Sig(videoFileName, conf):
-    """the method extract and pre processing an rgb signal from a video or path"""
+    """the method extract and pre-processing a rgb signal from a video or path"""
 
     winsize= np.int32(conf.sigdict['winsize'])
     if get_winsize(videoFileName)<30:
@@ -84,3 +86,41 @@ def get_winsize(videoFileName):
     cap.release()
 
     return winsize
+
+def post_filtering(signal, detrend, fps):
+    """
+    This method post-filters the signal using a pre-filtering method.
+    :param signal: full iPPG or BP signal (sampling frequency=fps)
+    :param detrend: 0 for no detrending (BP) 1 for detrending (iPPG)
+    :param fps: sampling frequency of the signal.
+    :return: signal after post-filtering.
+    """
+    time = np.linspace(0, (len(signal) - 1) / fps, int(len(signal) * (100 / fps)))
+    x = np.linspace(0, (len(signal) - 1) / fps, len(signal))
+    if len(x) != len(signal):
+        min_len = min(len(x), len(signal))
+        x = x[:min_len]
+        signal = signal[:min_len]
+
+    interp_func = interpolate.interp1d(x, signal, kind='linear')
+    signal = interp_func(time)
+
+    # DETRENDING (Tarvainen et al., 2002)
+    if detrend:
+        lambda_ = 470  # Smoothing parameter
+        T = len(signal)
+
+        # Identity matrix (sparse)
+        I = sparse.eye(T)
+
+        # Second-order difference matrix D (sparse)
+        data = [np.ones(T), -2 * np.ones(T), np.ones(T)]
+        offsets = [0, 1, 2]
+        D2 = sparse.diags(data, offsets, shape=(T - 2, T))
+
+        # Solve (I + λ^2 * D^T D) * z = signal
+        H = I + lambda_ ** 2 * D2.T @ D2
+        z = spsolve(H, signal)
+        signal = signal - z
+
+    return signal
