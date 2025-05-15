@@ -29,7 +29,7 @@ def extract_Sig(videoFileName, conf):
 
     print('\nProcessing Video ' + videoFileName)
     fps = get_fps(videoFileName)
-    sig_processing.set_total_frames(30*fps)
+    sig_processing.set_total_frames(30*fps) # set to 0 to process the whole video
     # 3. ROI selection
     print('\nRoi processing...')
     sig = []

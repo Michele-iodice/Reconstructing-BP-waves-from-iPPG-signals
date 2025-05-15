@@ -60,18 +60,21 @@ def extract_feature_on_dataset(conf):
             fname = dataset.getSigFilename(idx)
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
-            cwt_BP= signal_to_cwt(bpGT[0], overlap=50, norm=0, detrend=0, recover=1,
+            cwt_BP, sig_bp= signal_to_cwt(bpGT[0], overlap=50, norm=0, detrend=0, recover=1,
                                   fps=np.int32(conf.uNetdict['frameRate']))
             videoFileName = dataset.getVideoFilename(idx)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(videoFileName)
             sigEX = extract_Sig(videoFileName, conf)
             green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
-            cwt_ippg= signal_to_cwt(green_signal, overlap=50, norm=1, detrend=1, recover=0,
+            cwt_ippg, sig_ippg= signal_to_cwt(green_signal, overlap=50, norm=1, detrend=1, recover=0,
                                     fps=np.int32(conf.uNetdict['frameRate']))
-            newLine = pd.DataFrame({'CWT': cwt_ippg, 'CWT_BP': cwt_BP, 'sex': sex, 'BP': bpGT,
-                                    'original': sigEX, 'subject_id': subjectId}, index=[0])
-            df = pd.concat([df, newLine], ignore_index=True)
+            i=0
+            while i<len(cwt_BP) and i<len(cwt_ippg):
+                newLine = pd.DataFrame({'CWT': cwt_ippg[i], 'CWT_BP': cwt_BP[i], 'sex': sex, 'BP': sig_bp[i],
+                                    'original': sig_ippg[i], 'subject_id': subjectId}, index=[0])
+                df = pd.concat([df, newLine], ignore_index=True)
+                i = i + 1
 
     return df
 

@@ -15,13 +15,12 @@ def compute_scales():
     MorletFourierFactor = 4 * np.pi / (6 + np.sqrt(2 + 6 ** 2))
     freqs = 1 / (sc * MorletFourierFactor)
     for dummy in range(len(freqs)):
-        if freqs[dummy] < 0.6 and sc_max == -1:
-            sc_max = sc[dummy]
-        elif freqs[dummy] < 8 and sc_min == -1:
+        if freqs[dummy] <= 4.5 and sc_min == -1:
             sc_min = sc[dummy]
+        elif freqs[dummy] <= 0.6 and sc_max == -1:
+            sc_max = sc[dummy]
 
-    sc = np.array([sc_min, sc_max])
-    scales = np.arange(sc[0], sc[1], 0.00555)
+    scales = np.linspace(sc_min, sc_max, 256)
 
     return scales
 
@@ -63,6 +62,7 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
 
     # WINDOWING
     CWT = []
+    sig_windows=[]
     i = 0
     while (i + 255) < len(signal):
         signal_window = signal[i:i+256]
@@ -78,10 +78,11 @@ def signal_to_cwt(signal, overlap, norm, detrend, recover, fps):
         if recover==1:
             cwt_result = cwt_result + np.mean(signal_window)
         CWT.append(cwt_result)
+        sig_windows.append(signal_window)
 
         i += overlap
 
-    return CWT, scales
+    return CWT, sig_windows
 
 
 def inverse_cwt(CWT, fps):
