@@ -1,4 +1,7 @@
 import csv
+from collections import defaultdict
+
+import h5py
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -129,7 +132,7 @@ def test_model(model, criterion, test_loader):
     print(f'Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}')
 
 
-def split_data(data, overlap, norm, recover):
+def split_data(data_path):
     """
     Divided the data in input follow this steps:
     step1: group the data by subjects
@@ -140,36 +143,39 @@ def split_data(data, overlap, norm, recover):
     :return: data divided into x,y of test, train and validation
     """
 
-    subjects = data['subject_id'].unique()
+    with h5py.File(data_path, "r") as f:
 
-    train_subjects, test_subjects = train_test_split(subjects, test_size=0.2, random_state=42)
-    train_subjects, val_subjects = train_test_split(train_subjects, test_size=0.25, random_state=42)
+        subject_to_groups = defaultdict(list)
+        for group_id in f:
+            subject_id = f[group_id].attrs["subject_id"]
+            subject_to_groups[subject_id].append(group_id)
 
-    train_data = data[data['subject_id'].isin(train_subjects)]
-    val_data = data[data['subject_id'].isin(val_subjects)]
-    test_data = data[data['subject_id'].isin(test_subjects)]
+        subjects = list(subject_to_groups.keys())
 
-    x_train, y_train = process_data(train_data, overlap, norm, recover)
-    x_val, y_val = process_data(val_data, overlap, norm, recover)
-    x_test, y_test = process_data(test_data, overlap, norm, recover)
+        train_subjects, test_subjects = train_test_split(subjects, test_size=0.2, random_state=42)
+        train_subjects, val_subjects = train_test_split(train_subjects, test_size=0.25, random_state=42)  # 0.25 * 0.8 = 0.2
+
+        def get_group_ids(subject_list):
+            return [gid for subj in subject_list for gid in subject_to_groups[subj]]
+
+        train_ids = get_group_ids(train_subjects)
+        val_ids = get_group_ids(val_subjects)
+        test_ids = get_group_ids(test_subjects)
+
+        def load_data(group_ids):
+            X, Y = [], []
+            for gid in group_ids:
+                ippg_cwt = f[gid]["ippg_cwt"][:]
+                bp_cwt = f[gid]["bp_cwt"][:]
+                X.append(ippg_cwt)
+                Y.append(bp_cwt)
+            return X, Y
+
+        x_train, y_train = load_data(train_ids)
+        x_val, y_val = load_data(val_ids)
+        x_test, y_test = load_data(test_ids)
 
     return x_train, x_test, x_val, y_train, y_test, y_val
-
-
-def process_data(df, overlap, norm, recover):
-    x_list=[]
-    y_list=[]
-    for _, row in df.iterrows():
-        sig = row['ippg']
-        bp_sig = row['BP']
-        cwt_ippg = signal_to_cwt(sig, overlap=overlap, norm=norm, recover=recover)
-        cwt_bp = signal_to_cwt(bp_sig, overlap=overlap, norm=norm, recover=recover)
-
-        for i in range(min(len(cwt_ippg), len(cwt_bp))):
-            x_list.append(cwt_ippg[i])
-            y_list.append(cwt_bp[i])
-
-    return x_list, y_list
 
 
 def plot_train(history):

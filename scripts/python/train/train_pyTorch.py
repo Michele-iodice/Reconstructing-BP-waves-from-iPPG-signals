@@ -32,19 +32,11 @@ def train_models(config, extract_data=False,):
 
     if extract_data is True:
         print(f"start new training")
-        data = extract_feature_on_dataset(config)
-        if os.path.exists(data_path):
-            print(f"with new value")
-            data.to_csv(data_path, mode='a', index=False, header=False)
-        else:
-            print(f"for the first time ")
-            data.to_csv(data_path, index=False)
+        extract_feature_on_dataset(config,data_path)
     else:
         print(f"start old training")
-        data = pd.read_csv(data_path)
-        print(data)
 
-    x_train, x_test, x_val, y_train, y_test, y_val = split_data(data, overlap=50, norm=1, recover=0)
+    x_train, x_test, x_val, y_train, y_test, y_val = split_data(data_path)
 
     in_channels = x_train.shape[-1]
     base_model = UNet(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
@@ -89,4 +81,5 @@ def train_models(config, extract_data=False,):
 if __name__ == "__main__":
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+
     train_models(config, extract_data=True)
