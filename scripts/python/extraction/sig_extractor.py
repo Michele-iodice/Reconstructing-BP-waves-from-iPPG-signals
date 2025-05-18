@@ -95,7 +95,7 @@ def get_winsize(videoFileName):
 
     return winsize
 
-def post_filtering(signal, detrend, fps):
+def post_filtering(signal, detrend, fps, verbose=False):
     """
     This method post-filters the signal using a pre-filtering method.
     :param signal: full iPPG or BP signal (sampling frequency=fps)
@@ -103,6 +103,10 @@ def post_filtering(signal, detrend, fps):
     :param fps: sampling frequency of the signal.
     :return: signal after post-filtering.
     """
+
+    if verbose:
+        print("Post-filtering...")
+
     time = np.linspace(0, (len(signal) - 1) / fps, int(len(signal) * (100 / fps)))
     x = np.linspace(0, (len(signal) - 1) / fps, len(signal))
     if len(x) != len(signal):
@@ -115,6 +119,9 @@ def post_filtering(signal, detrend, fps):
 
     # DETRENDING (Tarvainen et al., 2002)
     if detrend:
+        if verbose:
+            print("-post-filter applied: Detrending")
+
         lambda_ = 470  # Smoothing parameter
         T = len(signal)
 

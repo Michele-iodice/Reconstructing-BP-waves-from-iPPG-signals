@@ -24,7 +24,7 @@ def compute_scales():
     return scales
 
 
-def signal_to_cwt(signal, overlap, norm, recover):
+def signal_to_cwt(signal, overlap, norm, recover, verbose=False):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
@@ -33,6 +33,13 @@ def signal_to_cwt(signal, overlap, norm, recover):
     recover: 0 for no mean recovery (iPPG), 1 to add mean back to CWT (BP)
     fps: sampling frequency of the signal
     """
+    if verbose:
+        if norm:
+            print("-post-filter applied: Standardization")
+        if recover:
+            print("-post-filter applied: Recovery")
+
+        print("CWT extraction...")
 
     scales = compute_scales()
 

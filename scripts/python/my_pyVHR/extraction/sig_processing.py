@@ -89,7 +89,9 @@ class SignalProcessing:
         selected_indices = list(range(17, 27)) + [1, 2, 3, 14, 15, 16]
 
         for frame in extract_frames_yield(videoFileName, frame_interval=frame_interval):
-            print(processed_frames_count)
+            percent=(processed_frames_count*100) // self.tot_frames
+            if processed_frames_count == 0 or percent != ((processed_frames_count - 1) * 100) // self.tot_frames:
+                print(f"{percent}%...")
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             width = int(image.shape[1] * scale_percent / 100)
             height = int(image.shape[0] * scale_percent / 100)

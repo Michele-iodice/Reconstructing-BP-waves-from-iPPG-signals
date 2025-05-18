@@ -142,7 +142,7 @@ def split_data(data_path):
     :param data: data to split
     :return: data divided into x,y of test, train and validation
     """
-
+    print(f"start data splitting...")
     with h5py.File(data_path, "r") as f:
 
         subject_to_groups = defaultdict(list)

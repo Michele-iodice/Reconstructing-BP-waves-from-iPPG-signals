@@ -90,8 +90,8 @@ def extract_feature_on_dataset(conf,dataset_path):
                 continue
 
             green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
-            sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-            cwt_ippg, sig_ippg_windows = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0)
+            sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']),verbose=True)
+            cwt_ippg, sig_ippg_windows = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0, verbose=True)
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"
@@ -115,8 +115,8 @@ def extract_feature_on_video(video, bp, dataset_path, conf):
         sex = getSex(subjectId)
         sigEX = extract_Sig(fname, conf)
         green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
-        sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-        cwt_ippg = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0)
+        sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']), verbose=True)
+        cwt_ippg = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0, verbose=True)
 
         for i in range(min(len(cwt_ippg), len(cwt_bp))):
             group_id = f"{subjectId}_{i}"
