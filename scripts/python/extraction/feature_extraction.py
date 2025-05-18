@@ -84,6 +84,11 @@ def extract_feature_on_dataset(conf,dataset_path):
             subjectId = getSubjectId(videoFileName)
             sex = getSex(subjectId)
             sigEX = extract_Sig(videoFileName, conf)
+            if sigEX is None:
+                print('\nError:No signal extracted.')
+                print('\nDiscarded video.')
+                continue
+
             green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
             sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
             cwt_ippg, sig_ippg_windows = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0)

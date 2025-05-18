@@ -37,11 +37,19 @@ def extract_Sig(videoFileName, conf):
     sig = []
     # SIG extraction with holistic approach
     sig = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=2)
+    if len(sig) <= 0:
+        print('\nError:No signal extracted.')
+        return None
+
     print(' - Extraction approach: ' + roi_approach)
     print(' - Extraction method: ' + roi_method)
 
     # 4. sig windowing
     windowed_sig, timesES = sig_windowing(sig, winsize, 1, fps)
+    if len(windowed_sig) <= 0:
+        print('\nError:No windowed signal.')
+        return None
+
     print(f' - Number of windows: {len(windowed_sig)}')
     print(' - Win size: (#ROI, #landmarks, #frames) = ', windowed_sig[0].shape)
 
