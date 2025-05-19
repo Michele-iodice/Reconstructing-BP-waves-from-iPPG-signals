@@ -169,7 +169,7 @@ def split_data(data_path):
                 bp_cwt = f[gid]["bp_cwt"][:]
                 X.append(ippg_cwt)
                 Y.append(bp_cwt)
-            return X, Y
+            return np.array(X), np.array(Y)
 
         x_train, y_train = load_data(train_ids)
         x_val, y_val = load_data(val_ids)

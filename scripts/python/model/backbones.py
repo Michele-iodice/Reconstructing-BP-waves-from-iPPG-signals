@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+import warnings
 
 
 class BackboneFactory(nn.Module):
@@ -20,12 +21,121 @@ class BackboneFactory(nn.Module):
 
         self.out_features = self._remove_classifier(backbone_name)
 
+
     def _load_backbone(self, backbone_name, pretrained):
-        if hasattr(models, backbone_name):
-            backbone = getattr(models, backbone_name)(pretrained=pretrained)
+
+        if not hasattr(models, backbone_name):
+            raise ValueError(f"Backbone '{backbone_name}' not supported.")
+
+        # backbone_name Maps -> correct name enum weights (torchvision >=0.13)
+        weights_map = {
+            # ResNet family
+            'resnet18': 'ResNet18_Weights',
+            'resnet34': 'ResNet34_Weights',
+            'resnet50': 'ResNet50_Weights',
+            'resnet101': 'ResNet101_Weights',
+            'resnet152': 'ResNet152_Weights',
+
+            # ResNeXt family
+            'resnext50_32x4d': 'ResNeXt50_32X4D_Weights',
+            'resnext101_32x8d': 'ResNeXt101_32X8D_Weights',
+
+            # Wide ResNet
+            'wide_resnet50_2': 'Wide_ResNet50_2_Weights',
+            'wide_resnet101_2': 'Wide_ResNet101_2_Weights',
+
+            # MobileNet
+            'mobilenet_v2': 'MobileNet_V2_Weights',
+            'mobilenet_v3_large': 'MobileNet_V3_Large_Weights',
+            'mobilenet_v3_small': 'MobileNet_V3_Small_Weights',
+
+            # EfficientNet
+            'efficientnet_b0': 'EfficientNet_B0_Weights',
+            'efficientnet_b1': 'EfficientNet_B1_Weights',
+            'efficientnet_b2': 'EfficientNet_B2_Weights',
+            'efficientnet_b3': 'EfficientNet_B3_Weights',
+            'efficientnet_b4': 'EfficientNet_B4_Weights',
+            'efficientnet_b5': 'EfficientNet_B5_Weights',
+            'efficientnet_b6': 'EfficientNet_B6_Weights',
+            'efficientnet_b7': 'EfficientNet_B7_Weights',
+
+            # DenseNet
+            'densenet121': 'DenseNet121_Weights',
+            'densenet161': 'DenseNet161_Weights',
+            'densenet169': 'DenseNet169_Weights',
+            'densenet201': 'DenseNet201_Weights',
+
+            # VGG
+            'vgg11': 'VGG11_Weights',
+            'vgg11_bn': 'VGG11_BN_Weights',
+            'vgg13': 'VGG13_Weights',
+            'vgg13_bn': 'VGG13_BN_Weights',
+            'vgg16': 'VGG16_Weights',
+            'vgg16_bn': 'VGG16_BN_Weights',
+            'vgg19': 'VGG19_Weights',
+            'vgg19_bn': 'VGG19_BN_Weights',
+
+            # ShuffleNet
+            'shufflenet_v2_x0_5': 'ShuffleNet_V2_X0_5_Weights',
+            'shufflenet_v2_x1_0': 'ShuffleNet_V2_X1_0_Weights',
+            'shufflenet_v2_x1_5': 'ShuffleNet_V2_X1_5_Weights',
+            'shufflenet_v2_x2_0': 'ShuffleNet_V2_X2_0_Weights',
+
+            # SqueezeNet
+            'squeezenet1_0': 'SqueezeNet1_0_Weights',
+            'squeezenet1_1': 'SqueezeNet1_1_Weights',
+
+            # AlexNet
+            'alexnet': 'AlexNet_Weights',
+
+            # RegNet
+            'regnet_y_400mf': 'RegNet_Y_400MF_Weights',
+            'regnet_y_800mf': 'RegNet_Y_800MF_Weights',
+            'regnet_y_1_6gf': 'RegNet_Y_1_6GF_Weights',
+            'regnet_y_3_2gf': 'RegNet_Y_3_2GF_Weights',
+            'regnet_y_8gf': 'RegNet_Y_8GF_Weights',
+            'regnet_y_16gf': 'RegNet_Y_16GF_Weights',
+            'regnet_y_32gf': 'RegNet_Y_32GF_Weights',
+            'regnet_x_400mf': 'RegNet_X_400MF_Weights',
+            'regnet_x_800mf': 'RegNet_X_800MF_Weights',
+            'regnet_x_1_6gf': 'RegNet_X_1_6GF_Weights',
+            'regnet_x_3_2gf': 'RegNet_X_3_2GF_Weights',
+            'regnet_x_8gf': 'RegNet_X_8GF_Weights',
+            'regnet_x_16gf': 'RegNet_X_16GF_Weights',
+
+            # Vision Transformer (ViT)
+            'vit_b_16': 'ViT_B_16_Weights',
+            'vit_b_32': 'ViT_B_32_Weights',
+            'vit_l_16': 'ViT_L_16_Weights',
+            'vit_l_32': 'ViT_L_32_Weights',
+            # Aggiungi altri se usi modelli nuovi...
+
+        }
+
+        weight_class_name = weights_map.get(backbone_name)
+
+        if weight_class_name is None:
+            weights = None
+            if pretrained:
+                warnings.warn(
+                    f"No weights enum defined fo '{backbone_name}', upload without pre-trained weights.")
         else:
-            raise ValueError(f"Backbone '{backbone_name}' non supportato.")
+            try:
+                weights_enum = getattr(models, weight_class_name)
+                weights = weights_enum.DEFAULT if pretrained else None
+            except AttributeError:
+                weights = None
+                if pretrained:
+                    warnings.warn(f"Weights Enum '{weight_class_name}' not found in torchvision.models.")
+
+        try:
+            backbone = getattr(models, backbone_name)(weights=weights)
+        except TypeError:
+            warnings.warn("'weights' parameter not supported, use fallback with 'pretrained'.")
+            backbone = getattr(models, backbone_name)(pretrained=pretrained)
+
         return backbone
+
 
     def _remove_classifier(self, backbone_name):
         if backbone_name.startswith('resnet') or backbone_name.startswith('resnext') or backbone_name.startswith('efficientnet'):
@@ -44,8 +154,17 @@ class BackboneFactory(nn.Module):
         return in_features
 
     def forward(self, x):
-        features = self.backbone(x)
-        return features
+        x = self.backbone.conv1(x)
+        x = self.backbone.bn1(x)
+        x = self.backbone.relu(x)
+        x = self.backbone.maxpool(x)
+
+        x = self.backbone.layer1(x)
+        x = self.backbone.layer2(x)
+        x = self.backbone.layer3(x)
+        x = self.backbone.layer4(x)
+
+        return x
 
     def get_output_features(self):
         return self.out_features

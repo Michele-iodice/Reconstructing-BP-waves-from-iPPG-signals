@@ -42,7 +42,6 @@ class UNet(nn.Module):
 
         # Pass through ResNeXt blocks
         encoder_outputs = self.resnet_blocks(x)
-
         # Create Decoder network
         self.decoder_blocks = create_decoder_network(
             encoder_outputs=encoder_outputs,

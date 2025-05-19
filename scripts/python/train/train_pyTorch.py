@@ -14,7 +14,7 @@ import numpy as np
 
 def train_models(config, extract_data=False,):
     # Parameter
-    BATCH_SIZE = np.int32(config.uNetdict['BATCH_SIZE'])
+    BATCH_SIZE = int(np.int32(config.uNetdict['BATCH_SIZE']))
     EPOCHS = np.int32(config.uNetdict['EPOCHS'])
     VERBOSE = config.get_boolean('UnetParameter', 'VERBOSE')
     data_path = config.uNetdict['data_path']
@@ -32,13 +32,22 @@ def train_models(config, extract_data=False,):
 
     if extract_data is True:
         print(f"start new training")
+        print(f"Data Extraction...")
         extract_feature_on_dataset(config,data_path)
     else:
-        print(f"start old training")
+        print(f"start new training from pre-extracted data")
 
     x_train, x_test, x_val, y_train, y_test, y_val = split_data(data_path)
 
-    in_channels = x_train.shape[-1]
+    x_train = torch.tensor(x_train).unsqueeze(1).float()  # [N, 1, 256, 256]
+    x_val = torch.tensor(x_val).unsqueeze(1).float()
+    x_test = torch.tensor(x_test).unsqueeze(1).float()
+
+    y_train = torch.tensor(y_train).float()
+    y_val = torch.tensor(y_val).float()
+    y_test = torch.tensor(y_test).float()
+
+    in_channels = x_train.shape[1]
     base_model = UNet(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
                       n_blocks3=n_blocks3, n_blocks4=n_blocks4,
                       output_channels=output_channels, backbone_name=backbone_name,
@@ -58,11 +67,10 @@ def train_models(config, extract_data=False,):
     with open(model_path, 'w') as json_file:
         json.dump(model_structure, json_file, indent=4)
 
-    validation_data = (x_val, y_val)
-
     train_dataset = TensorDataset(x_train, y_train)
     valid_dataset = TensorDataset(x_val, y_val)
     test_dataset = TensorDataset(x_test, y_test)
+
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
@@ -82,4 +90,4 @@ if __name__ == "__main__":
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-    train_models(config, extract_data=True)
+    train_models(config, extract_data=False)
