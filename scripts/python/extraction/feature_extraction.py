@@ -78,7 +78,7 @@ def extract_feature_on_dataset(conf,dataset_path):
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
             sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-            cwt_bp, sig_bp_windows = signal_to_cwt(sig_bp, overlap=50, norm=0, recover=1)
+            cwt_bp, sig_bp_windows = signal_to_cwt(sig_bp, range_freq=[0.1, 10], num_scales=256, overlap=50, norm=0, recover=1)
             videoFileName = dataset.getVideoFilename(idx)
             print('videoFileName: ', videoFileName)
             subjectId = getSubjectId(videoFileName)
@@ -91,7 +91,7 @@ def extract_feature_on_dataset(conf,dataset_path):
 
             green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
             sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']),verbose=True)
-            cwt_ippg, sig_ippg_windows = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0, verbose=True)
+            cwt_ippg, sig_ippg_windows = signal_to_cwt(sig_ippg,range_freq=[0.6, 4.5],num_scales=256, overlap=50, norm=1, recover=0, verbose=True)
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"

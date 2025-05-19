@@ -3,7 +3,7 @@ import pywt
 import matplotlib.pyplot as plt
 
 
-def compute_scales():
+def compute_scales(f_min, f_max, num_scales):
     """
     COMPUTE SCALES
     :return: scales
@@ -14,17 +14,17 @@ def compute_scales():
     MorletFourierFactor = 4 * np.pi / (6 + np.sqrt(2 + 6 ** 2))
     freqs = 1 / (sc * MorletFourierFactor)
     for dummy in range(len(freqs)):
-        if freqs[dummy] <= 4.5 and sc_min == -1:
+        if freqs[dummy] <= f_max and sc_min == -1:
             sc_min = sc[dummy]
-        elif freqs[dummy] <= 0.6 and sc_max == -1:
+        elif freqs[dummy] <= f_min and sc_max == -1:
             sc_max = sc[dummy]
 
-    scales = np.linspace(sc_min, sc_max, 256)
+    scales = np.linspace(sc_min, sc_max, num_scales)
 
     return scales
 
 
-def signal_to_cwt(signal, overlap, norm, recover, verbose=False):
+def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, recover, verbose=False):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
@@ -41,7 +41,7 @@ def signal_to_cwt(signal, overlap, norm, recover, verbose=False):
 
         print("CWT extraction...")
 
-    scales = compute_scales()
+    scales = compute_scales(range_freq[0],range_freq[1], num_scales)
 
     # OVERLAPPING
     if overlap == 0:
@@ -59,11 +59,13 @@ def signal_to_cwt(signal, overlap, norm, recover, verbose=False):
             signal_window = (signal_window - np.mean(signal_window)) / np.std(signal_window)
 
         # Compute CWT
-        cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor', sampling_period=1/100)
+        cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1/100)
 
         if recover==1:
             cwt_result = cwt_result + np.mean(signal_window)
-        CWT.append(cwt_result)
+
+        cwt_tensor = np.stack([np.real(cwt_result), np.imag(cwt_result)], axis=0)
+        CWT.append(cwt_tensor)
         sig_windows.append(signal_window)
 
         i += overlap

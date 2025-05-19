@@ -16,11 +16,24 @@ class BackboneFactory(nn.Module):
         :param pretrained: if true, then the pre-trained network will use imagenet weights
         """
         super(BackboneFactory, self).__init__()
+        self.backbone_name = backbone_name
 
         self.backbone = self._load_backbone(backbone_name, pretrained)
 
         self.out_features = self._remove_classifier(backbone_name)
+        self.skips = []
 
+
+    def setSkips(self, skips):
+
+        self.skips.append(skips[0])
+        self.skips.append(skips[1])
+        self.skips.append(skips[2])
+        self.skips.append(skips[3])
+        self.skips.append(skips[4])
+
+    def getSkips(self):
+        return self.skips
 
     def _load_backbone(self, backbone_name, pretrained):
 
@@ -154,15 +167,24 @@ class BackboneFactory(nn.Module):
         return in_features
 
     def forward(self, x):
-        x = self.backbone.conv1(x)
-        x = self.backbone.bn1(x)
-        x = self.backbone.relu(x)
-        x = self.backbone.maxpool(x)
+        if self.backbone_name.startswith('resnet') or self.backbone_name.startswith('resnext') or self.backbone_name.startswith(
+                'efficientnet'):
+            x = self.backbone.conv1(x)
+            out_conv1 = x
+            x = self.backbone.bn1(x)
+            x = self.backbone.relu(x)
+            x = self.backbone.maxpool(x)
 
-        x = self.backbone.layer1(x)
-        x = self.backbone.layer2(x)
-        x = self.backbone.layer3(x)
-        x = self.backbone.layer4(x)
+            out1 = self.backbone.layer1(x)
+            out2 = self.backbone.layer2(out1)
+            out3 = self.backbone.layer3(out2)
+            out4 = self.backbone.layer4(out3)
+            self.setSkips([out_conv1, out1, out2, out3, out4])
+
+            return out4
+
+        else:
+            x = self.backbone(x)
 
         return x
 
@@ -198,6 +220,9 @@ class Backbones(nn.Module):
 
     def get_output_features(self):
         return self.backbone.get_output_features()
+
+    def get_encoder_outputs(self):
+        return self.backbone.getSkips()
 
 
 # Example of using library

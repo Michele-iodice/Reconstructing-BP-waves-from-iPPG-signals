@@ -39,19 +39,27 @@ def train_models(config, extract_data=False,):
 
     x_train, x_test, x_val, y_train, y_test, y_val = split_data(data_path)
 
-    x_train = torch.tensor(x_train).unsqueeze(1).float()  # [N, 1, 256, 256]
-    x_val = torch.tensor(x_val).unsqueeze(1).float()
-    x_test = torch.tensor(x_test).unsqueeze(1).float()
+    x_train = torch.tensor(x_train).float()  # [N, 1, 256, 256]
+    x_val = torch.tensor(x_val).float()
+    x_test = torch.tensor(x_test).float()
 
     y_train = torch.tensor(y_train).float()
     y_val = torch.tensor(y_val).float()
     y_test = torch.tensor(y_test).float()
 
     in_channels = x_train.shape[1]
-    base_model = UNet(cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
-                      n_blocks3=n_blocks3, n_blocks4=n_blocks4,
-                      output_channels=output_channels, backbone_name=backbone_name,
-                      pretrained=pretrained, freeze_backbone=freeze_backbone)
+    base_model = UNet(True,
+                      in_channel=in_channels,
+                      output_channels=output_channels,
+                      backbone_name=backbone_name,
+                      pretrained=pretrained,
+                      freeze_backbone=freeze_backbone)
+
+    # if you want use without backbone pretrained
+    # base_model = UNet(False, cardinality=cardinality, n_blocks1=n_blocks1, n_blocks2=n_blocks2,
+    #                  n_blocks3=n_blocks3, n_blocks4=n_blocks4,
+    #                  output_channels=output_channels)
+
     model = ModelAdapter(base_model, in_channels)
 
     # loss and optimisation function definition
@@ -90,4 +98,4 @@ if __name__ == "__main__":
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-    train_models(config, extract_data=False)
+    train_models(config, extract_data=True)

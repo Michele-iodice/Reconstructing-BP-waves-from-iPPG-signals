@@ -56,29 +56,26 @@ class DecoderBlock(nn.Module):
 
 
 class DecoderNetwork(nn.Module):
-    def __init__(self, encoder_outputs, input_channels, output_channels_list):
+    def __init__(self, output_channels_list):
         """
         Create the Decoder network of five :class:'DecoderBlock'
-        :param encoder_outputs: (List of torch.Tensor) the encoders output to concatenate with decoders block
-        :param input_channels: input channels of the first decoder block
         :param output_channels_list: an array with the output channels of each decoder block
         """
         super(DecoderNetwork, self).__init__()
 
         # Validate the input
         assert len(output_channels_list) == 5, "There must be 5 output channels specified."
-        assert len(encoder_outputs) == 4, "There must be 4 encoder outputs specified."
+
+        self.input_channels = None
+        self.output_channels_list = output_channels_list
 
         # Create the decoder blocks
-        self.decoder1 = DecoderBlock(input_channels, output_channels_list[0], encoder_channels=encoder_outputs[0])
-        self.decoder2 = DecoderBlock(output_channels_list[0], output_channels_list[1],
-                                     encoder_channels=encoder_outputs[1])
-        self.decoder3 = DecoderBlock(output_channels_list[1], output_channels_list[2],
-                                     encoder_channels=encoder_outputs[2])
-        self.decoder4 = DecoderBlock(output_channels_list[2], output_channels_list[3],
-                                     encoder_channels=encoder_outputs[3])
+        self.decoder1 = None
+        self.decoder2 = None
+        self.decoder3 = None
+        self.decoder4 = None
 
-        self.decoder5 = DecoderBlock(output_channels_list[3], output_channels_list[4], use_concat=False)
+        self.decoder5 = DecoderBlock(self.output_channels_list[3], self.output_channels_list[4], use_concat=False)
 
     def forward(self, x, encoder_outputs):
         """
@@ -86,26 +83,42 @@ class DecoderNetwork(nn.Module):
         :param encoder_outputs: (list of torch.Tensor) List of outputs from encoder blocks to concatenate.
         :return: (torch.Tensor) decoder network final output
         """
-        x = self.decoder1(x, encoder_outputs[0])
-        x = self.decoder2(x, encoder_outputs[1])
-        x = self.decoder3(x, encoder_outputs[2])
-        x = self.decoder4(x, encoder_outputs[3])
+        x = self.decoder1(x, encoder_outputs[3])
+        x = self.decoder2(x, encoder_outputs[2])
+        x = self.decoder3(x, encoder_outputs[1])
+        x = self.decoder4(x, encoder_outputs[0])
         x = self.decoder5(x)
 
         return x
 
+    def set_decoder_input(self,input_channels, encoders_outputs):
+        """
+         Sets the decoder input with the encoder output
+         :param input_channels: input channels of the first decoder block
+         :param encoders_outputs: (List of torch.Tensor) the encoders output to concatenate with decoders block
+        """
+        assert len(encoders_outputs) == 5, "There must be 4 encoder outputs specified."
 
-def create_decoder_network(encoder_outputs, input_channels, output_channels_list):
+        self.input_channels = input_channels
+        output_channels_list = self.output_channels_list
+
+        self.decoder1 = DecoderBlock(input_channels, output_channels_list[0],
+                                     encoder_channels=encoders_outputs[3].shape[1])
+        self.decoder2 = DecoderBlock(output_channels_list[0], output_channels_list[1],
+                                     encoder_channels=encoders_outputs[2].shape[1])
+        self.decoder3 = DecoderBlock(output_channels_list[1], output_channels_list[2],
+                                     encoder_channels=encoders_outputs[1].shape[1])
+        self.decoder4 = DecoderBlock(output_channels_list[2], output_channels_list[3],
+                                     encoder_channels=encoders_outputs[0].shape[1])
+
+
+def create_decoder_network(output_channels_list):
     """
     Creation of a decoder network
-    :param encoder_outputs: (List of torch.Tensor) the encoders output to concatenate with decoders block
-    :param input_channels: input channels of the first decoder block
     :param output_channels_list: an array with the output channels of each decoder block
     :return: (torch.Tensor) decoder network final output
     """
-    return DecoderNetwork(encoder_outputs=encoder_outputs,
-                          input_channels=input_channels,
-                          output_channels_list=output_channels_list)
+    return DecoderNetwork(output_channels_list=output_channels_list)
 
 
 # Example of how to instantiate and use the DecoderNetwork
@@ -120,8 +133,9 @@ if __name__ == "__main__":
     output_channels = [256, 128, 64, 32, 16]  # Desired output channels
 
     # Create the network
-    decoder_network = create_decoder_network(encoder_outputs=encoder_outputs, input_channels=2048, output_channels_list=output_channels)
+    decoder_network = create_decoder_network(output_channels_list=output_channels)
 
     # Forward pass
+    decoder_network.set_decoder_input(input_tensor, encoder_outputs)
     output = decoder_network(input_tensor, encoder_outputs)
     print("Output shape:", output.shape)  # Should be [1, 16, H, W] depending on the input size

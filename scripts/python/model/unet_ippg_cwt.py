@@ -5,52 +5,59 @@ from model.backbones import Backbones
 
 
 class UNet(nn.Module):
-    def __init__(self, cardinality, n_blocks1, n_blocks2, n_blocks3, n_blocks4,
-                 output_channels, backbone_name, pretrained=True, freeze_backbone=True):
+    def __init__(self,backbone: bool, in_channel, cardinality=None, n_blocks1=None, n_blocks2=None, n_blocks3=None, n_blocks4=None,
+                 output_channels=None, backbone_name=None, pretrained=True, freeze_backbone=True):
         super(UNet, self).__init__()
+        self.backbone = backbone
+        self.pretrained = pretrained
+        if backbone:
+            self.backbone = Backbones(backbone_name=backbone_name, pretrained=pretrained, freeze_backbone=freeze_backbone)
+        else:
+            self.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), padding=1)
 
-        self.decoder_blocks = None
-        self.backbone = Backbones(backbone_name=backbone_name, pretrained=pretrained, freeze_backbone=freeze_backbone)
+            self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        in_conv = self.backbone.get_output_features()
-        self.conv1 = nn.Conv2d(in_conv, 64, kernel_size=(3, 3), padding=1)
+            # Create ResNeXt blocks
+            self.resnet_blocks = create_resnext_network(
+                input_channels=64,  # Fixed input channels from conv1
+                cardinality=cardinality,
+                n_blocks1=n_blocks1,
+                n_blocks2=n_blocks2,
+                n_blocks3=n_blocks3,
+                n_blocks4=n_blocks4
+            )
 
-        self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # Create ResNeXt blocks
-        self.resnet_blocks = create_resnext_network(
-            input_channels=64,  # Fixed input channels from conv1
-            cardinality=cardinality,
-            n_blocks1=n_blocks1,
-            n_blocks2=n_blocks2,
-            n_blocks3=n_blocks3,
-            n_blocks4=n_blocks4
-        )
 
         self.output_channels = output_channels
 
-        # Final convolution layer
-        self.final_conv = nn.Conv2d(2, 2, kernel_size=(3, 3), padding=1)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.backbone(x)
-
-        x = self.conv1(x)
-
-        x = self.max_pool(x)
-
-        # Pass through ResNeXt blocks
-        encoder_outputs = self.resnet_blocks(x)
-        # Create Decoder network
         self.decoder_blocks = create_decoder_network(
-            encoder_outputs=encoder_outputs,
-            input_channels=encoder_outputs[3].shape[1],
             output_channels_list=self.output_channels
         )
 
+        # Final convolution layer
+        self.final_conv = nn.Conv2d(self.output_channels[4], in_channel, kernel_size=(3, 3), padding=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        if self.backbone:
+            x = self.backbone(x)
+            encoder_outputs = self.backbone.get_encoder_outputs()
+        else:
+            x = self.conv1(x)
+            self.resnet_blocks.set_out_conv(x)
+            x = self.max_pool(x)
+            # Pass through ResNeXt blocks
+            encoder_outputs = self.resnet_blocks(x)
+            x = encoder_outputs[4]
+
+
+        # Set Decoder network
+        self.decoder_blocks.set_decoder_input(
+            input_channels=x.shape[1],
+            encoders_outputs=encoder_outputs
+        )
         # Pass through Decoder blocks
-        decoder_output = self.decoder_blocks(encoder_outputs[3])
+        decoder_output = self.decoder_blocks(x,encoder_outputs)
 
         x = self.final_conv(decoder_output)
         return self.sigmoid(x)

@@ -55,6 +55,9 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
         for inputs, targets in train_loader:
             optimizer.zero_grad()
             outputs = model(inputs)
+            print("inputs", inputs.shape)
+            print("output shape: ", outputs.shape)
+            print("target shape: ", targets.shape)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()

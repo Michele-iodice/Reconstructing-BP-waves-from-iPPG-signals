@@ -104,17 +104,38 @@ class CustomResNeXtNetwork(nn.Module):
 
         self.group4 = ResNeXtGroup(in_channels=1024, cardinality=cardinality, output_channels=2048, num_blocks=n_blocks4,
                                    downsample=True)
+        self.skips = []
+        self.out_conv = None
+
+    def set_skips(self, skips):
+
+        self.skips.append(self.out_conv)
+        self.skips.append(skips[1])
+        self.skips.append(skips[2])
+        self.skips.append(skips[3])
+        self.skips.append(skips[4])
+
+    def get_skips(self):
+        return self.skips
+
+    def set_out_conv(self, out_conv):
+        self.out_conv = out_conv
 
     def forward(self, x):
         out1 = self.group1(x)
+        print("out group 1:",out1.shape)
 
         out2 = self.group2(out1)
-
+        print("out group 2:",out2.shape)
         out3 = self.group3(out2)
+        print("out group 3:",out3.shape)
 
         out4 = self.group4(out3)
+        print("out group 4:",out4.shape)
 
-        return out1, out2, out3, out4
+        self.set_skips([self.out_conv, out1, out2, out3, out4])
+
+        return out4
 
 
 def create_resnext_network(input_channels, cardinality=32, n_blocks1=3, n_blocks2=4, n_blocks3=23, n_blocks4=3):
