@@ -3,28 +3,22 @@ import pywt
 import matplotlib.pyplot as plt
 
 
-def compute_scales(f_min, f_max, num_scales):
+def compute_scales(range_freq, num_scales, fps):
     """
     COMPUTE SCALES
     :return: scales
     """
-    sc_min = -1
-    sc_max = -1
-    sc = np.arange(0.2, 1000.01, 0.01)
+    sc_min = range_freq[0]
+    sc_max = range_freq[1]
+    freqs = np.linspace(sc_max, sc_min, num_scales)
     MorletFourierFactor = 4 * np.pi / (6 + np.sqrt(2 + 6 ** 2))
-    freqs = 1 / (sc * MorletFourierFactor)
-    for dummy in range(len(freqs)):
-        if freqs[dummy] <= f_max and sc_min == -1:
-            sc_min = sc[dummy]
-        elif freqs[dummy] <= f_min and sc_max == -1:
-            sc_max = sc[dummy]
-
-    scales = np.linspace(sc_min, sc_max, num_scales)
+    delta = 1 / fps
+    scales = MorletFourierFactor / (freqs * delta)
 
     return scales
 
 
-def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, recover, verbose=False):
+def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, recover,fps=100, verbose=False):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
@@ -41,7 +35,7 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
 
         print("CWT extraction...")
 
-    scales = compute_scales(range_freq[0],range_freq[1], num_scales)
+    scales = compute_scales(range_freq, num_scales, fps)
 
     # OVERLAPPING
     if overlap == 0:
@@ -50,16 +44,18 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
     # WINDOWING
     CWT = []
     sig_windows=[]
+    windowing = 256
     i = 0
-    while (i + 255) < len(signal):
-        signal_window = signal[i:i+256]
+    while (i + windowing-1) < len(signal):
+        signal_window = signal[i:i+windowing]
 
         # Standardization
         if norm:
             signal_window = (signal_window - np.mean(signal_window)) / np.std(signal_window)
 
         # Compute CWT
-        cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1/100)
+        cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1/fps)
+
 
         if recover==1:
             cwt_result = cwt_result + np.mean(signal_window)

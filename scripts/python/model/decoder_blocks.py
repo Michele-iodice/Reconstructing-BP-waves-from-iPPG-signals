@@ -83,9 +83,17 @@ class DecoderNetwork(nn.Module):
         :param encoder_outputs: (list of torch.Tensor) List of outputs from encoder blocks to concatenate.
         :return: (torch.Tensor) decoder network final output
         """
+        print("x shape: ", x.shape)
+        print("encoder_outputs: ", encoder_outputs[3].shape)
         x = self.decoder1(x, encoder_outputs[3])
+        print("x shape: ", x.shape)
+        print("encoder_outputs: ", encoder_outputs[2].shape)
         x = self.decoder2(x, encoder_outputs[2])
+        print("x shape: ", x.shape)
+        print("encoder_outputs: ", encoder_outputs[1].shape)
         x = self.decoder3(x, encoder_outputs[1])
+        print("x shape: ", x.shape)
+        print("encoder_outputs: ", encoder_outputs[0].shape)
         x = self.decoder4(x, encoder_outputs[0])
         x = self.decoder5(x)
 

@@ -46,7 +46,7 @@ def train_models(config, extract_data=False,):
     y_train = torch.tensor(y_train).float()
     y_val = torch.tensor(y_val).float()
     y_test = torch.tensor(y_test).float()
-
+    print("x_train shape: ", x_train[0].shape)
     in_channels = x_train.shape[1]
     base_model = UNet(True,
                       in_channel=in_channels,
@@ -74,6 +74,7 @@ def train_models(config, extract_data=False,):
 
     with open(model_path, 'w') as json_file:
         json.dump(model_structure, json_file, indent=4)
+
 
     train_dataset = TensorDataset(x_train, y_train)
     valid_dataset = TensorDataset(x_val, y_val)

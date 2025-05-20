@@ -95,6 +95,8 @@ def extract_feature_on_dataset(conf,dataset_path):
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"
+                print("cwt_ippg: ", cwt_ippg[i].shape)
+                print("cwt_bp: ", cwt_bp[i].shape)
                 save_subject_data(f, group_id, subjectId, sex, sig_ippg, sig_bp, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
 
 
@@ -110,13 +112,13 @@ def extract_feature_on_video(video, bp, dataset_path, conf):
         sigGT = BP4D.readSigfile(BP4D, bp)
         bpGT = sigGT.getSig()
         sig_bp = post_filtering(bpGT, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-        cwt_bp = signal_to_cwt(sig_bp, overlap=50, norm=1, recover=0)
+        cwt_bp = signal_to_cwt(sig_bp, range_freq=[0.1, 10], num_scales=256, overlap=50, norm=0, recover=1)
         subjectId = getSubjectId(fname)
         sex = getSex(subjectId)
         sigEX = extract_Sig(fname, conf)
         green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
         sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']), verbose=True)
-        cwt_ippg = signal_to_cwt(sig_ippg, overlap=50, norm=1, recover=0, verbose=True)
+        cwt_ippg = signal_to_cwt(sig_ippg,range_freq=[0.6, 4.5],num_scales=256, overlap=50, norm=1, recover=0, verbose=True)
 
         for i in range(min(len(cwt_ippg), len(cwt_bp))):
             group_id = f"{subjectId}_{i}"
