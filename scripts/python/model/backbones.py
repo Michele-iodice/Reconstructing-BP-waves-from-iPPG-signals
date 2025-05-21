@@ -25,7 +25,7 @@ class BackboneFactory(nn.Module):
 
 
     def setSkips(self, skips):
-
+        self.skips = []
         self.skips.append(skips[0])
         self.skips.append(skips[1])
         self.skips.append(skips[2])
@@ -170,21 +170,15 @@ class BackboneFactory(nn.Module):
         if self.backbone_name.startswith('resnet') or self.backbone_name.startswith('resnext') or self.backbone_name.startswith(
                 'efficientnet'):
             x = self.backbone.conv1(x)
-            print("conv1 shape: ", x.shape)
             out_conv1 = x
             x = self.backbone.bn1(x)
             x = self.backbone.relu(x)
             x = self.backbone.maxpool(x)
-            print("maxpool shape: ", x.shape)
 
             out1 = self.backbone.layer1(x)
-            print("encoder 1 shape: ", out1.shape)
             out2 = self.backbone.layer2(out1)
-            print("encoder 2 shape: ", out2.shape)
             out3 = self.backbone.layer3(out2)
-            print("encoder 3 shape: ", out3.shape)
             out4 = self.backbone.layer4(out3)
-            print("encoder 4 shape: ", out4.shape)
             self.setSkips([out_conv1, out1, out2, out3, out4])
 
             return out4

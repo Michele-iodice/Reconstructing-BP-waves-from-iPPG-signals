@@ -39,10 +39,8 @@ class UNet(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        print("input shape: ", x.shape)
         if self.backbone:
             x = self.backbone(x)
-            print("backbone shape: ", x.shape)
             encoder_outputs = self.backbone.get_encoder_outputs()
         else:
             x = self.conv1(x)
@@ -60,10 +58,8 @@ class UNet(nn.Module):
         )
         # Pass through Decoder blocks
         decoder_output = self.decoder_blocks(x,encoder_outputs)
-        print("decoder_output shape: ", decoder_output.shape)
 
         x = self.final_conv(decoder_output)
-        print("final conv shape: ", x.shape)
         return self.sigmoid(x)
 
 
@@ -74,11 +70,8 @@ class ModelAdapter(nn.Module):
         self.base_model = base_model
 
     def forward(self, x):
-        print("input shape: ", x.shape)
         x = self.conv1(x)
-        print("conv1 shape: ", x.shape)
         x = self.base_model(x)
-        print("output shape: ", x.shape)
         return x
 
 

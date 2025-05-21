@@ -62,11 +62,12 @@ def sig_windowing(sig, wsize, stride, fps):
         block_signals.append(wind_signal)
     return block_signals, timesES
 
+def raw_windowing(raw_signal, wsize, stride, fps):
     """
     This method is used to divide a Raw signal into overlapping windows.
 
     Args:
-        sig (float32 ndarray): ndarray of images with shape [num_frames, rows, columns, rgb_channels].
+        raw_signal (float32 ndarray): ndarray of images with shape [num_frames, rows, columns, rgb_channels].
         wsize (float): window size in seconds.
         stride (float): stride between overlapping windows in seconds.
         fps (float): frames per seconds.

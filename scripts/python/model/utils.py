@@ -1,6 +1,5 @@
 import csv
 from collections import defaultdict
-
 import h5py
 import torch
 import numpy as np
@@ -8,8 +7,8 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 import pandas as pd
-from extraction.signal_to_cwt import signal_to_cwt
-
+from tqdm import tqdm
+import sys
 
 def save_checkpoint(model, optimizer, epoch, loss, file_path):
     """
@@ -47,24 +46,32 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
                'train_mae': [],
                'val_mae': []}
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), desc="Training Progress", leave=True):
         model.train()
         running_loss = 0.0
         running_mae = 0.0
 
-        for inputs, targets in train_loader:
+        train_bar = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]", leave=False)
+        for inputs, targets in train_bar:
+            inputs = inputs.to(next(model.parameters()).device)
+            targets = targets.to(next(model.parameters()).device)
+
             optimizer.zero_grad()
             outputs = model(inputs)
-            print("inputs", inputs.shape)
-            print("output shape: ", outputs.shape)
-            print("target shape: ", targets.shape)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
-            running_mae += mean_absolute_error(targets.cpu().detach().numpy(),
-                                               outputs.cpu().detach().numpy()) * inputs.size(0)
+            batch_loss = loss.item()
+            batch_mae = mean_absolute_error(
+                targets.cpu().detach().numpy().flatten(),
+                outputs.cpu().detach().numpy().flatten()
+            )
+
+            running_loss += batch_loss * inputs.size(0)
+            running_mae += batch_mae * inputs.size(0)
+            train_bar.set_postfix(loss=batch_loss, mae=batch_mae)
+
         epoch_loss = running_loss / len(train_loader)
         epoch_mae = running_mae / len(train_loader)
         history['train_loss'].append(epoch_loss)
@@ -74,12 +81,23 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
         model.eval()
         val_loss = 0.0
         val_mae = 0.0
+        val_bar = tqdm(valid_loader, desc=f"Epoch {epoch + 1}/{epochs} [Valid]", leave=False)
         with torch.no_grad():
-            for inputs, targets in valid_loader:
+            for inputs, targets in val_bar:
+                inputs = inputs.to(next(model.parameters()).device)
+                targets = targets.to(next(model.parameters()).device)
+
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
-                val_loss += loss.item()
-                val_mae += mean_absolute_error(targets.cpu().numpy(), outputs.cpu().numpy()) * inputs.size(0)
+                batch_loss = loss.item()
+                batch_mae = mean_absolute_error(
+                    targets.cpu().numpy().flatten(),
+                    outputs.cpu().numpy().flatten()
+                )
+
+                val_loss += batch_loss * inputs.size(0)
+                val_mae += batch_mae * inputs.size(0)
+                val_bar.set_postfix(val_loss=batch_loss, val_mae=batch_mae)
 
         val_loss /= len(valid_loader)
         val_mae /= len(valid_loader)
@@ -88,14 +106,18 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
 
         # show progress
         if VERBOSE:
-            print(f'Epoch {epoch + 1}/{epochs}, '
-                  f'Train Loss: {epoch_loss:.4f}, Val Loss: {val_loss:.4f}, '
-                  f'Train MAE: {epoch_mae:.4f}, Val MAE: {val_mae:.4f}')
+            tqdm.write(f'Epoch {epoch + 1}/{epochs}, '
+                       f'Train Loss: {epoch_loss:.4f}, Val Loss: {val_loss:.4f}, '
+                       f'Train MAE: {epoch_mae:.4f}, Val MAE: {val_mae:.4f}')
 
         # save model if it is the best
-        if epoch == 0 or val_loss < min(history['val_loss'][:-1]):
-            print(f"Validation loss decreased ({min(history['val_loss'][:-1]):.4f} -> {val_loss:.4f}). Saving model...")
+        if epoch == 0:
+            tqdm.write(f"Validation loss -> {val_loss:.4f}). Saving model...")
             save_checkpoint(model, optimizer, epoch, val_loss, checkpoint_path)
+        elif val_loss < min(history['val_loss'][:-1]):
+            tqdm.write(f"Validation loss decreased ({min(history['val_loss'][:-1]):.4f} -> {val_loss:.4f}). Saving model...")
+            save_checkpoint(model, optimizer, epoch, val_loss, checkpoint_path)
+
 
     # Save loss chronology in a CSV file
     with open('history.csv', mode='w', newline='') as file:
@@ -106,7 +128,7 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
                              history['train_loss'][i], history['train_mae'][i],
                              history['val_loss'][i], history['val_mae'][i]])
 
-    return history
+    return model, history
 
 
 def test_model(model, criterion, test_loader):
@@ -115,12 +137,27 @@ def test_model(model, criterion, test_loader):
     test_loss = 0.0
     test_mae = 0.0
 
+    test_bar = tqdm(test_loader, desc="Testing")
     with torch.no_grad():
-        for inputs, targets in test_loader:
+        for inputs, targets in test_bar:
+
+            inputs = inputs.to(next(model.parameters()).device)
+            targets = targets.to(next(model.parameters()).device)
+
             outputs = model(inputs)
             loss = criterion(outputs, targets)
-            test_loss += loss.item() * inputs.size(0)
-            test_mae += mean_absolute_error(targets.cpu().numpy(), outputs.cpu().numpy()) * inputs.size(0)
+            batch_loss = loss.item()
+            batch_mae = mean_absolute_error(
+                targets.cpu().numpy().flatten(),
+                outputs.cpu().numpy().flatten()
+            )
+            test_loss += batch_loss * inputs.size(0)
+            test_mae += batch_mae * inputs.size(0)
+
+            test_bar.set_postfix({
+                "loss": f"{batch_loss:.4f}",
+                "mae": f"{batch_mae:.4f}"
+            })
 
     test_loss /= len(test_loader.dataset)
     test_mae /= len(test_loader.dataset)
@@ -132,7 +169,7 @@ def test_model(model, criterion, test_loader):
 
     df_results = pd.DataFrame(test_results)
     df_results.to_csv('test_results.csv', index=False)
-    print(f'Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}')
+    tqdm.write(f'Test Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f}')
 
 
 def split_data(data_path):
@@ -142,7 +179,6 @@ def split_data(data_path):
     step2: Divide the IDs of subjects into train test and val (64% train, 20% test, 16% validation)
     step3: split data using subject's ID
     Step 4: data extraction of CWT and BP for each set (train, validation, test)
-    :param data: data to split
     :return: data divided into x,y of test, train and validation
     """
     print(f"start data splitting...")
