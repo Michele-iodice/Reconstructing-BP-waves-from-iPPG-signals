@@ -69,50 +69,58 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
     return CWT, sig_windows
 
 
-def inverse_cwt(CWT, fps):
+def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100):
     """
     Approximate the inverse CWT using a summation over scales and time.
 
-    CWT: Coefficients of the Continuous Wavelet Transform
-    scales: Scales used in the CWT
-    time: Array of time points corresponding to the original signal
-    wavelet_function: The mother wavelet function psi(t)
-    C_psi: The admissibility constant C_psi
+    CWT: Coefficients of the Continuous Wavelet Transform.
+    f_min: Minimum frequency of scales.
+    f_max: Maximum frequency of scales.
+    scales: Scales used in the CWT.
+    time: Array of time points corresponding to the original signal.
+    wavelet_function: The mother wavelet function psi(t).
+    C_psi: The admissibility constant C_psi.
     """
+    range_freq = [f_min, f_max]
+    real_part = CWT[0]
+    imag_part = CWT[1]
+    scales = compute_scales(range_freq, num_scales, fps)
+    coeffs = real_part + 1j * imag_part
 
-    time = np.arange(0, len(CWT) / fps, 1 / 100)
-    wavelet = pywt.ContinuousWavelet('cmor', dtype='float64')
-    wavelet_function, _ = wavelet.wavefun(level=10)  # morlet function psi(t)
-    C_psi = 0.776  # approximation of C_psi for cmor wavelet
-    scales = compute_scales()
-    reconstructed_signal = np.zeros(len(time))
+    num_scales, num_samples = coeffs.shape
+    time = np.arange(num_samples) / fps
 
-    # Loop over each scale
+    psi, x = pywt.ContinuousWavelet('cmor1.5-1.0').wavefun(level=10)
+
+    reconstructed = np.zeros(num_samples, dtype=np.float64)
+
     for idx, scale in enumerate(scales):
-        for tau in range(CWT.shape[1]):
-            # Compute the contribution of each coefficient CWT_x(tau, scale)
-            wavelet_contribution = wavelet_function((time - tau) / scale) / np.sqrt(np.abs(scale))
-            reconstructed_signal += (CWT[idx, tau] * wavelet_contribution) / (scale ** 2)
+        for tau in range(num_samples):
+            t_scaled = (time - time[tau]) / scale
+            wavelet_val = np.interp(t_scaled, x, np.real(psi), left=0, right=0)
+            contribution = (coeffs[idx, tau] * wavelet_val) / (scale ** 1.5)
+            reconstructed += np.real(contribution)
 
-    # Normalize by the admissibility constant C_psi
-    reconstructed_signal /= C_psi
-
-    return reconstructed_signal
+    reconstructed /= C_psi
+    return reconstructed
 
 
-def plotCWT(cwt_sig):
-    joy = np.linspace(1, 5, len(cwt_sig[0][0]))
-    time = np.linspace(0, 2.5, len(cwt_sig[0][0][0]))
-    scalogram = np.mean(cwt_sig, axis=0)
-    scalogram = np.mean(scalogram, axis=0)
-    scalogram_real = np.abs(scalogram)
+def plotCWT(cwt_sig,fps=100):
+    scales = compute_scales([0.6,4.5],256,fps)
+    cwt_complex = cwt_sig[0] + 1j * cwt_sig[1]
+    power = np.abs(cwt_complex) ** 2
+
+    time = np.arange(cwt_complex.shape[1]) / fps
+    freqs = pywt.scale2frequency('cmor1.5-1.0', scales) * fps
+
     plt.figure(figsize=(10, 5))
-    plt.imshow(scalogram_real, aspect='auto', extent=[time.min(), time.max(), joy.min(), joy.max()],
-               origin='lower', cmap='jet')
-    plt.title('CWT signal')
+    plt.pcolormesh(time, freqs, power, shading='auto', cmap='jet')
+    plt.yscale('log')
     plt.xlabel('Time (s)')
     plt.ylabel('Frequency (Hz)')
-    plt.colorbar(label='Amplitude')
+    plt.title('CWT Scalogram')
+    plt.colorbar(label='Power')
+    plt.tight_layout()
     plt.show()
 
 

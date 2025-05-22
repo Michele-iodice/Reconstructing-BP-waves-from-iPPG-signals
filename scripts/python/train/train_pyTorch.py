@@ -1,7 +1,5 @@
 import torch.nn as nn
 import torch
-import os
-import pandas as pd
 import torch.optim as optim
 import json
 from torch.utils.data import DataLoader, TensorDataset
@@ -89,14 +87,14 @@ def train_models(config, extract_data=False,):
     summary(model, input_size=(2, 256, 256))
 
     # training
-    print("start training...")
+    print("start training...\n")
     history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path,
                           VERBOSE=VERBOSE)
     plot_train(history)
 
     # test
     model.load_state_dict(torch.load(checkpoint_path)['model_state_dict'], strict=False)
-    print("start testing...")
+    print("start testing...\n")
     test_model(model, criterion, test_loader)
 
 
