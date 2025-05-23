@@ -88,9 +88,9 @@ def train_models(config, extract_data=False,):
 
     # training
     print("start training...\n")
-    #history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path,
-    #                      VERBOSE=VERBOSE)
-    #plot_train(history)
+    history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path,
+                          VERBOSE=VERBOSE)
+    plot_train(history)
 
     # test
     model.load_state_dict(torch.load(checkpoint_path)['model_state_dict'], strict=False)
@@ -102,4 +102,4 @@ if __name__ == "__main__":
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-    train_models(config, extract_data=False)
+    train_models(config, extract_data=True)

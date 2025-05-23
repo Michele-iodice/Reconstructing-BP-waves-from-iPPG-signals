@@ -95,8 +95,6 @@ def extract_feature_on_dataset(conf,dataset_path):
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"
-                print("cwt_ippg: ", cwt_ippg[i].shape)
-                print("cwt_bp: ", cwt_bp[i].shape)
                 save_subject_data(f, group_id, subjectId, sex, sig_ippg, sig_bp, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
 
 

@@ -37,6 +37,9 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
 
     scales = compute_scales(range_freq, num_scales, fps)
 
+    # SIGNAL CLEANING
+    signal = np.nan_to_num(signal, nan=0.0, posinf=1e6, neginf=-1e6)
+
     # OVERLAPPING
     if overlap == 0:
         overlap = 256
@@ -48,13 +51,30 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
     i = 0
     while (i + windowing-1) < len(signal):
         signal_window = signal[i:i+windowing]
+        if np.any(np.isnan(signal_window)) or np.any(np.isinf(signal_window)):
+            if verbose:
+                print(f"DISCARDED: window at index {i} due to NaN or Inf")
+            i += overlap
+            continue
 
         # Standardization
         if norm:
-            signal_window = (signal_window - np.mean(signal_window)) / np.std(signal_window)
+            mean = np.mean(signal_window)
+            std = np.std(signal_window)
+
+            if std < 1e-6:
+                std = 1e-6
+
+            signal_window = (signal_window - mean) / std
 
         # Compute CWT
         cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1/fps)
+
+        if np.any(np.isnan(cwt_result)) or np.any(np.isinf(cwt_result)):
+            if verbose:
+                print(f"DISCARDED: CWT produced NaN/Inf at index {i}")
+            i += overlap
+            continue
 
 
         if recover==1:
