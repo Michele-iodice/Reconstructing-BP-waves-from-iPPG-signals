@@ -1,6 +1,8 @@
 import numpy as np
 import pywt
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+from pykalman import KalmanFilter
 
 
 def compute_scales(range_freq, num_scales, fps):
@@ -17,8 +19,36 @@ def compute_scales(range_freq, num_scales, fps):
 
     return scales
 
+def spline_interpolation(x):
+    nans = np.isnan(x)
+    if np.all(nans): return x
+    f = interp1d(np.flatnonzero(~nans), x[~nans], kind='cubic', fill_value="extrapolate")
+    x[nans] = f(np.flatnonzero(nans))
+    return x
 
-def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, recover,fps=100, verbose=False):
+def kalman_interpolation(x):
+    nans = np.isnan(x)
+    x[nans] = 0  # inizializza
+    kf = KalmanFilter(transition_matrices=[1],
+                      observation_matrices=[1],
+                      initial_state_mean=x[~nans][0],
+                      observation_covariance=1,
+                      transition_covariance=0.01)
+    x_smoothed, _ = kf.em(x).smooth(x)
+    return x_smoothed
+
+def smart_interpolation(x):
+    n_nan = np.sum(np.isnan(x))
+    frac_nan = n_nan / len(x)
+    if n_nan == 0:
+        return x
+    elif frac_nan < 0.1:
+        return spline_interpolation(x)
+    else:
+        return kalman_interpolation(x)
+
+
+def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, recover,fps=100, nan_threshold=0.3, verbose=False):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
@@ -37,9 +67,6 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
 
     scales = compute_scales(range_freq, num_scales, fps)
 
-    # SIGNAL CLEANING
-    signal = np.nan_to_num(signal, nan=0.0, posinf=1e6, neginf=-1e6)
-
     # OVERLAPPING
     if overlap == 0:
         overlap = 256
@@ -51,17 +78,22 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
     i = 0
     while (i + windowing-1) < len(signal):
         signal_window = signal[i:i+windowing]
-        if np.any(np.isnan(signal_window)) or np.any(np.isinf(signal_window)):
+
+        frac_nan = np.sum(np.isnan(signal_window)) / len(signal_window)
+        if frac_nan >= nan_threshold:
             if verbose:
-                print(f"DISCARDED: window at index {i} due to NaN or Inf")
+                print(f"Discarded window (std ~0): index {i}")
             i += overlap
             continue
+
+        # SIGNAL CLEANING
+        if np.any(np.isnan(signal_window)):
+            signal_window = smart_interpolation(signal_window)
 
         # Standardization
         if norm:
             mean = np.mean(signal_window)
             std = np.std(signal_window)
-
             if std < 1e-6:
                 std = 1e-6
 
