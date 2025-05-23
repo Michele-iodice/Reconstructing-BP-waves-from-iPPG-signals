@@ -6,3 +6,17 @@ scripts/python/venv/Lib/site-packages/torch/lib/dnnl.lib
 scripts/python/venv/Lib/site-packages/torch/lib/torch_cpu.dll
 scripts/python/models/weights.h5
 scripts/python/models/pytorch_model.pth
+scripts/python/dataset/data.h5
+scripts/python/train/result/all_test_results.csv
+scripts/python/train/result/model.json
+scripts/python/train/result1/history.csv
+scripts/python/train/result/model.json
+scripts/python/train/result/model.json
+scripts/python/train/result1/model.json
+scripts/python/train/result2/weights.pth
+scripts/python/train/result2/test_results.csv
+scripts/python/train/result2/model.json
+scripts/python/train/result2/history.csv
+scripts/python/train/result1/weights.pth
+scripts/python/train/result1/test_results.csv
+scripts/python/train/result/model.json
