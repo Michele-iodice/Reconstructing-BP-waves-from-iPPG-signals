@@ -69,7 +69,7 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
     return CWT, sig_windows
 
 
-def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100):
+def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100, recover=False):
     """
     Approximate the inverse CWT using a summation over scales and time.
 
@@ -81,6 +81,7 @@ def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100)
     wavelet_function: The mother wavelet function psi(t).
     C_psi: The admissibility constant C_psi.
     """
+
     range_freq = [f_min, f_max]
     real_part = CWT[0]
     imag_part = CWT[1]
@@ -102,6 +103,8 @@ def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100)
             reconstructed += np.real(contribution)
 
     reconstructed /= C_psi
+    if recover:
+        reconstructed = reconstructed + np.mean(real_part)
     return reconstructed
 
 

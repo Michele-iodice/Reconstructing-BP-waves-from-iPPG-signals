@@ -131,6 +131,8 @@ def test_model(model, criterion, test_loader):
     all_dbp_true, all_dbp_pred = [], []
     all_map_true, all_map_pred = [], []
     all_sbp_true, all_sbp_pred = [], []
+    all_target = []
+    all_prediction = []
 
     test_bar = tqdm(test_loader, desc="Testing")
     with torch.no_grad():
@@ -143,6 +145,9 @@ def test_model(model, criterion, test_loader):
                 nan_count += 1
                 continue
 
+            all_target.append(targets)
+            all_prediction.append(outputs)
+
             loss, mae = compute_batch_metrics(outputs, targets, criterion)
 
             test_loss += loss.item()
@@ -153,48 +158,54 @@ def test_model(model, criterion, test_loader):
                 "mae": f"{mae:.4f}"
             })
 
-            outputs_np = outputs.cpu().numpy()
-            targets_np = targets.cpu().numpy()
-
-            # Ricostruisci segnale BP dal CWT (usa la tua funzione inverse_cwt)
-            # Considera che outputs_np ha shape [batch, 2, scales, time] o simile
-            for i in range(outputs_np.shape[0]):
-                cwt_pred = outputs_np[i]
-                cwt_true = targets_np[i]
-
-                bp_pred = inverse_cwt(cwt_pred)
-                bp_true = inverse_cwt(cwt_true)
-
-
-                sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
-                sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
-
-                all_sbp_pred.append(sbp_pred)
-                all_dbp_pred.append(dbp_pred)
-                all_map_pred.append(map_pred)
-
-                all_sbp_true.append(sbp_true)
-                all_dbp_true.append(dbp_true)
-                all_map_true.append(map_true)
-
     test_loss /= len(test_loader.dataset)
     test_mae /= len(test_loader.dataset)
 
+    print("\n start metrics test...\n")
+    metrics_bar = tqdm(zip(all_target, all_prediction), total=len(all_prediction), desc="Metrics Test")
+    nan_metrics = 0
+    for target, prediction in metrics_bar:
+        outputs_np = prediction.cpu().numpy()
+        targets_np = target.cpu().numpy()
+
+        for i in range(outputs_np.shape[0]):
+            cwt_pred = outputs_np[i]
+            cwt_true = targets_np[i]
+
+            bp_pred = inverse_cwt(cwt_pred, f_min=0.6, f_max=4.5)
+            bp_true = inverse_cwt(cwt_true, f_min=0.1, f_max=10, recover=True)
+
+            sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
+            sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
+
+            if np.isnan(sbp_true) or np.isnan(dbp_true) or np.isnan(map_true) or np.isnan(sbp_pred) or np.isnan(dbp_pred) or np.isnan(map_pred):
+                nan_metrics +=1
+                continue
+
+            all_sbp_pred.append(sbp_pred)
+            all_dbp_pred.append(dbp_pred)
+            all_map_pred.append(map_pred)
+
+            all_sbp_true.append(sbp_true)
+            all_dbp_true.append(dbp_true)
+            all_map_true.append(map_true)
+
     results = test_metrics_with_bland_altman(
-        DBP_true=all_dbp_true, DBP_pred=all_dbp_pred,
-        MAP_true=all_map_true, MAP_pred=all_map_pred,
-        SBP_true=all_sbp_true, SBP_pred=all_sbp_pred
+        DBP_true=np.array(all_dbp_true), DBP_pred=np.array(all_dbp_pred),
+        MAP_true=np.array(all_map_true), MAP_pred=np.array(all_map_pred),
+        SBP_true=np.array(all_sbp_true), SBP_pred=np.array(all_sbp_pred)
     )
 
     test_results = {
         'Test Loss': [test_loss],
         'Test MAE': [test_mae],
-        'NaN batches': [nan_count]
+        'NaN batches': [nan_count],
+        'Nan metrics': [nan_count]
     }
 
     df_results = pd.DataFrame(test_results)
     df_results.to_csv('result/all_test_results.csv', mode='a', header=not os.path.exists('result/all_test_results.csv'), index=False)
-    tqdm.write(f'\nTest Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f} NaN batches: {nan_count}')
+    tqdm.write(f'\nTest Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f} NaN batches: {nan_count}, NsN metrics: {nan_metrics}')
     save_test(results,'result/test_results.csv')
 
 
@@ -301,7 +312,7 @@ def compute_batch_metrics(outputs, targets, criterion):
 
     mae = mean_absolute_error(targets_flat, outputs_flat)
 
-    return loss.item(), mae
+    return loss, mae
 
 def calculate_matrix(signal):
     """
@@ -315,14 +326,14 @@ def calculate_matrix(signal):
     :param signal: BP signal
     :return: SBP, DBP and MAP
     """
-    peaks_max_idx, _ = find_peaks(signal)
-    peaks_max_values = signal[peaks_max_idx]
+    systolic_peaks_idx, _ = find_peaks(signal)
+    systolic_peaks = signal[systolic_peaks_idx]
 
-    peaks_min_idx, _ = find_peaks(signal)
-    peaks_min_values = signal[peaks_min_idx]
+    diastolic_peaks_idx, _ = find_peaks(signal)
+    diastolic_peaks = signal[diastolic_peaks_idx]
 
-    sbp = np.mean(peaks_max_values) if len(peaks_max_values) > 0 else np.nan
-    dbp = np.mean(peaks_min_values) if len(peaks_min_values) > 0 else np.nan
+    sbp = np.mean(systolic_peaks) if len(systolic_peaks) > 0 else np.nan
+    dbp = np.mean(diastolic_peaks) if len(diastolic_peaks) > 0 else np.nan
     map = np.mean(signal)
 
     return  sbp, dbp, map
@@ -371,9 +382,9 @@ def save_test(results, csv_path):
             'MAE': results[key]['MAE'],
             'RMSE': results[key]['RMSE'],
             'BHS Grade': results[key]['BHS_grade'],
-            'BHS ≤5 mmHg (%)': results[key]['BHS_percentages']['≤5'],
-            'BHS ≤10 mmHg (%)': results[key]['BHS_percentages']['≤10'],
-            'BHS ≤15 mmHg (%)': results[key]['BHS_percentages']['≤15']
+            'BHS <=5 mmHg (%)': results[key]['BHS_percentages']['<=5mmHg'],
+            'BHS <=10 mmHg (%)': results[key]['BHS_percentages']['<=10mmHg'],
+            'BHS <=15 mmHg (%)': results[key]['BHS_percentages']['<=15mmHg']
         }
         rows.append(row)
 
