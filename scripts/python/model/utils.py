@@ -64,12 +64,12 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
-            running_mae += mae
+            running_loss += loss.item() * inputs.size(0)
+            running_mae += mae * inputs.size(0)
             train_bar.set_postfix(loss=loss.item(), mae=mae)
 
-        epoch_loss = running_loss / len(train_loader)
-        epoch_mae = running_mae / len(train_loader)
+        epoch_loss = running_loss / len(train_loader.dataset)
+        epoch_mae = running_mae / len(train_loader.dataset)
         history['train_loss'].append(epoch_loss)
         history['train_mae'].append(epoch_mae)
 
@@ -86,12 +86,12 @@ def train_model(model, criterion, optimizer, train_loader, valid_loader, epochs,
                 outputs = model(inputs)
                 loss, mae = compute_batch_metrics(outputs, targets, criterion)
 
-                val_loss += loss.item()
-                val_mae += mae
+                val_loss += loss.item() * inputs.size(0)
+                val_mae += mae * inputs.size(0)
                 val_bar.set_postfix(val_loss=loss.item(), val_mae=mae)
 
-        val_loss /= len(valid_loader)
-        val_mae /= len(valid_loader)
+        val_loss /= len(valid_loader.dataset)
+        val_mae /= len(valid_loader.dataset)
         history['val_loss'].append(val_loss)
         history['val_mae'].append(val_mae)
 
@@ -150,8 +150,10 @@ def test_model(model, criterion, test_loader):
 
             loss, mae = compute_batch_metrics(outputs, targets, criterion)
 
-            test_loss += loss.item()
-            test_mae += mae
+            batch_test_loss = loss.item() * inputs.size(0)
+            batch_test_mae = mae * inputs.size(0)
+            test_loss += batch_test_loss
+            test_mae += batch_test_mae
 
             test_bar.set_postfix({
                 "loss": f"{loss.item():.4f}",
@@ -173,7 +175,7 @@ def test_model(model, criterion, test_loader):
             cwt_true = targets_np[i]
 
             bp_pred = inverse_cwt(cwt_pred, f_min=0.6, f_max=4.5)
-            bp_true = inverse_cwt(cwt_true, f_min=0.1, f_max=10, recover=True)
+            bp_true = inverse_cwt(cwt_true, f_min=0.6, f_max=4.5, recover=True)
 
             sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
             sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
@@ -200,12 +202,12 @@ def test_model(model, criterion, test_loader):
         'Test Loss': [test_loss],
         'Test MAE': [test_mae],
         'NaN batches': [nan_count],
-        'Nan metrics': [nan_count]
+        'Nan metrics': [nan_metrics]
     }
 
     df_results = pd.DataFrame(test_results)
     df_results.to_csv('result/all_test_results.csv', mode='a', header=not os.path.exists('result/all_test_results.csv'), index=False)
-    tqdm.write(f'\nTest Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f} NaN batches: {nan_count}, NsN metrics: {nan_metrics}')
+    tqdm.write(f'\nTest Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f} NaN batches: {nan_count}, NaN metrics: {nan_metrics}')
     save_test(results,'result/test_results.csv')
 
 
@@ -329,11 +331,11 @@ def calculate_matrix(signal):
     systolic_peaks_idx, _ = find_peaks(signal)
     systolic_peaks = signal[systolic_peaks_idx]
 
-    diastolic_peaks_idx, _ = find_peaks(signal)
+    diastolic_peaks_idx, _ = find_peaks(-signal)
     diastolic_peaks = signal[diastolic_peaks_idx]
 
-    sbp = np.mean(systolic_peaks) if len(systolic_peaks) > 0 else np.nan
-    dbp = np.mean(diastolic_peaks) if len(diastolic_peaks) > 0 else np.nan
+    sbp = np.mean(systolic_peaks) if len(systolic_peaks) > 0 else np.max(signal)
+    dbp = np.mean(diastolic_peaks) if len(diastolic_peaks) > 0 else np.min(signal)
     map = np.mean(signal)
 
     return  sbp, dbp, map

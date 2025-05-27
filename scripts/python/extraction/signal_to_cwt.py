@@ -134,6 +134,8 @@ def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100,
     C_psi: The admissibility constant C_psi.
     """
 
+    # params
+    delta = 1 / fps
     range_freq = [f_min, f_max]
     real_part = CWT[0]
     imag_part = CWT[1]
@@ -141,22 +143,27 @@ def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100,
     coeffs = real_part + 1j * imag_part
 
     num_scales, num_samples = coeffs.shape
-    time = np.arange(num_samples) / fps
+    time = np.arange(num_samples) * delta
+    dt = delta
 
-    psi, x = pywt.ContinuousWavelet('cmor1.5-1.0').wavefun(level=10)
+    wavelet = pywt.ContinuousWavelet('cmor1.5-1.0')
+    psi, x = wavelet.wavefun(level=10)
 
     reconstructed = np.zeros(num_samples, dtype=np.float64)
 
     for idx, scale in enumerate(scales):
-        for tau in range(num_samples):
-            t_scaled = (time - time[tau]) / scale
-            wavelet_val = np.interp(t_scaled, x, np.real(psi), left=0, right=0)
-            contribution = (coeffs[idx, tau] * wavelet_val) / (scale ** 1.5)
-            reconstructed += np.real(contribution)
+        t_scaled = x * scale
+        psi_scaled = psi / np.sqrt(scale)
 
-    reconstructed /= C_psi
+        wavelet_vals = np.interp(time[:, None] - time, t_scaled, np.real(psi_scaled), left=0, right=0)
+        contributions = np.real(coeffs[idx, :] @ wavelet_vals.T) / (scale ** 1.5)
+        reconstructed += contributions
+
+    reconstructed *= dt / C_psi
+
     if recover:
-        reconstructed = reconstructed + np.mean(real_part)
+        reconstructed += np.mean(real_part)
+
     return reconstructed
 
 
