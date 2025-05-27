@@ -180,10 +180,6 @@ def test_model(model, criterion, test_loader):
             sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
             sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
 
-            if np.isnan(sbp_true) or np.isnan(dbp_true) or np.isnan(map_true) or np.isnan(sbp_pred) or np.isnan(dbp_pred) or np.isnan(map_pred):
-                nan_metrics +=1
-                continue
-
             all_sbp_pred.append(sbp_pred)
             all_dbp_pred.append(dbp_pred)
             all_map_pred.append(map_pred)
@@ -328,10 +324,10 @@ def calculate_matrix(signal):
     :param signal: BP signal
     :return: SBP, DBP and MAP
     """
-    systolic_peaks_idx, _ = find_peaks(signal)
+    systolic_peaks_idx, _ = find_peaks(signal,distance=20, prominence=5)
     systolic_peaks = signal[systolic_peaks_idx]
 
-    diastolic_peaks_idx, _ = find_peaks(-signal)
+    diastolic_peaks_idx, _ = find_peaks(-signal,distance=20, prominence=3)
     diastolic_peaks = signal[diastolic_peaks_idx]
 
     sbp = np.mean(systolic_peaks) if len(systolic_peaks) > 0 else np.max(signal)
@@ -507,27 +503,3 @@ def bland_altman_plot(ground_truth, predictions, title, range_limits=None):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-    # EXAMPLE OF USAGE
-    #from extraction.signal_to_cwt import inverse_cwt
-    #sbp_x=[]
-    #dbp_x=[]
-    #map_x=[]
-    #sbp_y=[]
-    #dbp_y=[]
-    #map_y=[]
-    #for prediction, ground_truth in zip(predictions, ground_truth):
-    #    sig_pred = inverse_cwt(prediction)
-    #    sig_gt = inverse_cwt(ground_truth)
-    #    sbp_pred, dbp_pred, map_pred = calculate_matrix(sig_pred)
-    #    sbp_gt, dbp_gt, map_gt = calculate_matrix(sig_gt)
-    #    sbp_x.append(sbp_gt)
-    #    dbp_x.append(dbp_gt)
-    #    map_x.append(map_gt)
-    #    sbp_y.append(sbp_pred)
-    #    dbp_y.append(dbp_pred)
-    #    map_y.append(map_pred)
-
-    #bland_altman_plot(sbp_x, sbp_y, title='SBP', range_limits=[-19.6, 16.6])
-    #bland_altman_plot(map_x, map_y, title='MAP', range_limits=[-12.0, 11.6])
-    #bland_altman_plot(dbp_x, dbp_y, title='DBP', range_limits=[-12.3, 14.3])
-
