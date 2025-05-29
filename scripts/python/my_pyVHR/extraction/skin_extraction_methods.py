@@ -97,6 +97,21 @@ class SkinExtractionFaceParsing:
         min_x *= 0.90
         max_y = max_y * 1.10 if max_y * 1.10 < image.shape[0] else image.shape[0]
         max_x = max_x * 1.10 if max_x * 1.10 < image.shape[1] else image.shape[1]
+
+        min_height = 7
+        min_width = 7
+
+        height = int(max_y) - int(min_y)
+        width = int(max_x) - int(min_x)
+
+        if height < min_height:
+            max_y = min(int(min_y) + min_height, image.shape[0])
+            min_y = max(int(max_y) - min_height, 0)
+
+        if width < min_width:
+            max_x = min(int(min_x) + min_width, image.shape[1])
+            min_x = max(int(max_x) - min_width, 0)
+            
         cropped_image = np.copy(image[int(min_y):int(max_y), int(min_x):int(max_x), :])
         nda_im = np.array(cropped_image)
         # prepare the image for the bisenet network
