@@ -256,7 +256,7 @@ def split_data(data_path):
     """
     Divided the data in input follow this steps:
     step1: group the data by subjects
-    step2: Divide the IDs of subjects into train test and val (64% train, 20% test, 16% validation)
+    step2: Divide the IDs of subjects into train test and val (70% train, 15% test, 15% validation)
     step3: split data using subject's ID
     Step 4: data extraction of CWT and BP for each set (train, validation, test)
     :return: data divided into x,y of test, train and validation
@@ -271,8 +271,8 @@ def split_data(data_path):
 
         subjects = list(subject_to_groups.keys())
 
-        train_subjects, test_subjects = train_test_split(subjects, test_size=0.2, random_state=42)
-        train_subjects, val_subjects = train_test_split(train_subjects, test_size=0.25, random_state=42)  # 0.25 * 0.8 = 0.2
+        train_subjects, test_subjects = train_test_split(subjects, test_size=0.30, random_state=42)
+        val_subjects, test_subjects = train_test_split(test_subjects, test_size=0.50, random_state=42)
 
         def get_group_ids(subject_list):
             return [gid for subj in subject_list for gid in subject_to_groups[subj]]
