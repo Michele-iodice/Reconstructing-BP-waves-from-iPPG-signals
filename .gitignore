@@ -20,3 +20,5 @@ scripts/python/train/result2/history.csv
 scripts/python/train/result1/weights.pth
 scripts/python/train/result1/test_results.csv
 scripts/python/train/result/model.json
+scripts/python/train/result3/weights.pth
+scripts/python/dataset/data1.h5
