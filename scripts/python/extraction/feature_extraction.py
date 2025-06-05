@@ -44,13 +44,11 @@ def getSex(subjectId):
         return -1  # not found
 
 
-def save_subject_data(f, group_id, subject_id, sex, sig_ippg, sig_bp, ippg, bp, ippg_cwt, bp_cwt):
+def save_subject_data(f, group_id, subject_id, sex, ippg, bp, ippg_cwt, bp_cwt):
     grp = f.create_group(str(group_id))
     grp.attrs["sex"] = int(sex)
     grp.attrs["subject_id"] = str(subject_id)
 
-    grp.create_dataset("original_signal", data=sig_ippg.astype(np.float32), compression="gzip")
-    grp.create_dataset("GT_bp", data=sig_bp.astype(np.float32), compression="gzip")
     grp.create_dataset("ippg", data=ippg.astype(np.float32), compression="gzip")
     grp.create_dataset("bp", data=bp.astype(np.float32), compression="gzip")
     grp.create_dataset("ippg_cwt", data=ippg_cwt.astype(np.float32), compression="gzip")
@@ -78,24 +76,23 @@ def extract_feature_on_dataset(conf,dataset_path):
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
             sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-            cwt_bp, sig_bp_windows = signal_to_cwt(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50, norm=0, recover=1, nan_threshold= 0.25, verbose=True)
+            cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50)
+
             videoFileName = dataset.getVideoFilename(idx)
             print('videoFileName: ', videoFileName)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(subjectId)
-            sigEX = extract_Sig(videoFileName, conf)
+            sigEX = extract_Sig(videoFileName, conf, method=conf.uNetdict['rppg_method'])
             if sigEX is None:
                 print('\nError:No signal extracted.')
                 print('\nDiscarded video.')
                 continue
 
-            green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
-            sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']),verbose=True)
-            cwt_ippg, sig_ippg_windows = signal_to_cwt(sig_ippg,range_freq=[0.6, 4.5],num_scales=256, overlap=50, norm=1, recover=0, nan_threshold=0.35, verbose=True)
+            cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35, verbose=True)
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"
-                save_subject_data(f, group_id, subjectId, sex, sig_ippg, sig_bp, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
+                save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
 
 
 def extract_feature_on_video(video, bp, dataset_path, conf):
@@ -109,18 +106,18 @@ def extract_feature_on_video(video, bp, dataset_path, conf):
         fname = video
         sigGT = BP4D.readSigfile(BP4D, bp)
         bpGT = sigGT.getSig()
-        sig_bp = post_filtering(bpGT, detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-        cwt_bp = signal_to_cwt(sig_bp, range_freq=[0.1, 10], num_scales=256, overlap=50, norm=0, recover=1)
+        sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
+        cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50)
+
         subjectId = getSubjectId(fname)
         sex = getSex(subjectId)
-        sigEX = extract_Sig(fname, conf)
-        green_signal = np.concatenate([segment[0, 1, :] for segment in sigEX])
-        sig_ippg = post_filtering(green_signal, detrend=1, fps=np.int32(conf.uNetdict['frameRate']), verbose=True)
-        cwt_ippg = signal_to_cwt(sig_ippg,range_freq=[0.6, 4.5],num_scales=256, overlap=50, norm=1, recover=0, verbose=True)
+        sigEX = extract_Sig(fname, conf, method=conf.uNetdict['rppg_method'])
+        cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX, range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35,
+                                                   verbose=True)
 
         for i in range(min(len(cwt_ippg), len(cwt_bp))):
             group_id = f"{subjectId}_{i}"
-            save_subject_data(f, group_id, subjectId, sex, sig_ippg, sig_bp, cwt_ippg, cwt_bp)
+            save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows, sig_bp_windows, cwt_ippg, cwt_bp)
 
 
     return True

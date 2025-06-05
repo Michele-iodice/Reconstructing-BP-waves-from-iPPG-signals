@@ -1,6 +1,8 @@
 import numpy as np
 from scipy import stats
 from scipy.signal import butter, filtfilt
+from scipy import interpolate, sparse
+from scipy.sparse.linalg import spsolve
 
 """
 This module contains a collection of filter methods.

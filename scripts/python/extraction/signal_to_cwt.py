@@ -48,7 +48,7 @@ def smart_interpolation(x):
         return kalman_interpolation(x)
 
 
-def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, recover,fps=100, nan_threshold=0.3, verbose=False):
+def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_threshold=0.3, verbose=False):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
     overlap: 0 for no overlap; N for an overlap on N samples
@@ -58,32 +58,21 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
     fps: sampling frequency of the signal
     """
     if verbose:
-        if norm:
-            print("-post-filter applied: Standardization")
-        if recover:
-            print("-post-filter applied: Recovery")
-
+        print("-post-filter applied: Standardization")
         print("CWT extraction...")
 
     scales = compute_scales(range_freq, num_scales, fps)
 
-    # OVERLAPPING
-    if overlap == 0:
-        overlap = 256
-
     # WINDOWING
     CWT = []
     sig_windows=[]
-    windowing = 256
     i = 0
-    while (i + windowing-1) < len(signal):
-        signal_window = signal[i:i+windowing]
+    for signal_window in signal:
 
         frac_nan = np.sum(np.isnan(signal_window)) / len(signal_window)
         if frac_nan >= nan_threshold:
             if verbose:
                 print(f"Discarded window (std ~0): index {i}")
-            i += overlap
             continue
 
         # SIGNAL CLEANING
@@ -91,13 +80,12 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
             signal_window = smart_interpolation(signal_window)
 
         # Standardization
-        if norm:
-            mean = np.mean(signal_window)
-            std = np.std(signal_window)
-            if std < 1e-6:
-                std = 1e-6
+        mean = np.mean(signal_window)
+        std = np.std(signal_window)
+        if std < 1e-6:
+            std = 1e-6
 
-            signal_window = (signal_window - mean) / std
+        signal_window = (signal_window - mean) / std
 
         # Compute CWT
         cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1/fps)
@@ -105,18 +93,13 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, overlap, norm, rec
         if np.any(np.isnan(cwt_result)) or np.any(np.isinf(cwt_result)):
             if verbose:
                 print(f"DISCARDED: CWT produced NaN/Inf at index {i}")
-            i += overlap
             continue
-
-
-        if recover==1:
-            cwt_result = cwt_result + np.mean(signal_window)
 
         cwt_tensor = np.stack([np.real(cwt_result), np.imag(cwt_result)], axis=0)
         CWT.append(cwt_tensor)
         sig_windows.append(signal_window)
 
-        i += overlap
+        i=i+1
 
     return CWT, sig_windows
 

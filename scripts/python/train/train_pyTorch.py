@@ -38,14 +38,14 @@ def train_models(config, extract_data=False,):
 
     x_train, x_test, x_val, y_train, y_test, y_val = split_data(data_path)
 
-    x_train = torch.tensor(x_train).float()  # [N, 1, 256, 256]
-    x_val = torch.tensor(x_val).float()
-    x_test = torch.tensor(x_test).float()
+    x_train_torch = torch.tensor(x_train).float()  # [N, 1, 256, 256]
+    x_val_torch = torch.tensor(x_val).float()
+    x_test_torch = torch.tensor(x_test).float()
 
-    y_train = torch.tensor(y_train).float()
-    y_val = torch.tensor(y_val).float()
-    y_test = torch.tensor(y_test).float()
-    in_channels = x_train.shape[1]
+    y_train_torch = torch.tensor(y_train).float()
+    y_val_torch = torch.tensor(y_val).float()
+    y_test_torch = torch.tensor(y_test).float()
+    in_channels = x_train_torch.shape[1]
     base_model = UNet(True,
                       in_channel=in_channels,
                       output_channels=output_channels,
@@ -74,9 +74,9 @@ def train_models(config, extract_data=False,):
         json.dump(model_structure, json_file, indent=4)
 
 
-    train_dataset = TensorDataset(x_train, y_train)
-    valid_dataset = TensorDataset(x_val, y_val)
-    test_dataset = TensorDataset(x_test, y_test)
+    train_dataset = TensorDataset(x_train_torch, y_train_torch)
+    valid_dataset = TensorDataset(x_val_torch, y_val_torch)
+    test_dataset = TensorDataset(x_test_torch, y_test_torch)
 
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)

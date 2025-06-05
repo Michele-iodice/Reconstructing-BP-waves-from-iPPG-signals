@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.signal import stft
 import plotly.graph_objects as go
+import pywt
+from extraction.signal_to_cwt import compute_scales
+from importlib import import_module
+from PPG.filters import *
 
 
 class BPsignal:
@@ -111,3 +115,34 @@ class BPsignal:
                           )
 
         fig.show(renderer=self.renderer)
+
+    def getCWT(self, sig, range_freq:[float], num_scales:int, overlap=0, fps=100):
+        sig = np.copy(sig)
+
+        scales = compute_scales(range_freq, num_scales, fps)
+
+        # OVERLAPPING
+        if overlap == 0:
+            overlap = 256
+
+        # WINDOWING
+        CWT = []
+        sig_windows = []
+        windowing = 256
+        i = 0
+        while (i + windowing - 1) < len(sig):
+            signal_window = sig[i:i + windowing]
+
+
+            # Compute CWT
+            cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1 / fps)
+
+            cwt_result = cwt_result + np.mean(signal_window)
+
+            cwt_tensor = np.stack([np.real(cwt_result), np.imag(cwt_result)], axis=0)
+            CWT.append(cwt_tensor)
+            sig_windows.append(signal_window)
+
+            i += overlap
+
+        return CWT, sig_windows

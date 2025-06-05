@@ -5,11 +5,14 @@ from my_pyVHR.extraction.skin_extraction_methods import SkinExtractionFaceParsin
 from my_pyVHR.extraction.sig_processing import SignalProcessing
 from my_pyVHR.extraction.utils import get_fps, sig_windowing
 from BP.filters import *
+from PPG.filters import *
 from scipy import interpolate, sparse
 from scipy.sparse.linalg import spsolve
+from PPG.PPG import RGB_sig_to_rPPG
+from extraction.signal_to_cwt import signal_to_cwt
 
 
-def extract_Sig(videoFileName, conf):
+def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS', post_filter=True):
     """the method extract and pre-processing a rgb signal from a video or path"""
 
     winsize= np.int32(conf.sigdict['winsize'])
@@ -29,11 +32,14 @@ def extract_Sig(videoFileName, conf):
     SkinProcessingParams.RGB_LOW_TH = np.int32(conf.sigdict['Skin_LOW_TH'])
     SkinProcessingParams.RGB_HIGH_TH = np.int32(conf.sigdict['Skin_HIGH_TH'])
 
-    print('\nProcessing Video ' + videoFileName)
+
     fps = get_fps(videoFileName)
     sig_processing.set_total_frames(30*fps) # set to 0 to process the whole video
     # 3. ROI selection
-    print('\nRoi processing...')
+    if verb:
+        print('\nProcessing Video ' + videoFileName)
+        print('\nRoi processing...')
+
     sig = []
     # SIG extraction with holistic approach
     sig = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=2)
@@ -41,8 +47,9 @@ def extract_Sig(videoFileName, conf):
         print('\nError:No signal extracted.')
         return None
 
-    print(' - Extraction approach: ' + roi_approach)
-    print(' - Extraction method: ' + roi_method)
+    if verb:
+        print(' - Extraction approach: ' + roi_approach)
+        print(' - Extraction method: ' + roi_method)
 
     # 4. sig windowing
     windowed_sig, timesES = sig_windowing(sig, winsize, 1, fps)
@@ -50,11 +57,13 @@ def extract_Sig(videoFileName, conf):
         print('\nError:No windowed signal.')
         return None
 
-    print(f' - Number of windows: {len(windowed_sig)}')
-    print(' - Win size: (#ROI, #landmarks, #frames) = ', windowed_sig[0].shape)
+    if verb:
+        print(f' - Number of windows: {len(windowed_sig)}')
+        print(' - Win size: (#ROI, #landmarks, #frames) = ', windowed_sig[0].shape)
 
     # 5. PRE FILTERING
-    print('\nPre filtering...')
+    if verb:
+        print('\nPre filtering...')
     filtered_windowed_sig = windowed_sig
 
     minHz = np.float32(conf.sigdict['minHz'])  # min heart frequency in Hz
@@ -69,7 +78,8 @@ def extract_Sig(videoFileName, conf):
                                            'fps': 'adaptive',
                                            'order': 2})
 
-    print(f' - Pre-filter applied: {method_to_call.__name__}')
+    if verb:
+        print(f' - Pre-filter applied: {method_to_call.__name__}')
 
     filter_range=[-1, 1]  # constant range of normalization
     method_to_call = getattr(module, 'zscorerange')
@@ -78,9 +88,50 @@ def extract_Sig(videoFileName, conf):
                                        params={'minR': filter_range[0],
                                                'maxR': filter_range[1]})
 
-    print(f' - Pre-filter applied: {method_to_call.__name__}')
+    if verb:
+        print(f' - Pre-filter applied: {method_to_call.__name__}')
 
-    return filtered_normal_sig
+    # 6. rPPG extraction
+    if verb:
+        print("\nBVP extraction...")
+        print(" - Extraction method: " + method)
+
+    module = import_module('PPG.methods')
+    method_to_call = getattr(module, method)
+
+    if 'POS' in method:
+        pars = {'fps': 'adaptive'}
+    elif 'PCA' in method or 'ICA' in method:
+        pars = {'component': 'all_comp'}
+    else:
+        pars = {}
+
+    r_ppgs_win = RGB_sig_to_rPPG(filtered_normal_sig,
+                                 fps,
+                                 method=method_to_call,
+                                 params=pars)
+
+    # 7. POST FILTERING
+    if post_filter:
+        module = import_module('PPG.filters')
+        method_to_call = getattr(module, 'interpolation')
+        fps = np.int32(conf.uNetdict['frameRate'])
+        r_ppgs_interp = apply_ppg_filter(r_ppgs_win,
+                                         method_to_call,
+                                         fps=fps,
+                                         params={'fps': fps})
+        if verb:
+            print(f' - Post-filter applied: {method_to_call.__name__}')
+
+        method_to_call = getattr(module, 'detrend')
+        r_ppgs_detrend = apply_ppg_filter(r_ppgs_interp,
+                                         method_to_call,
+                                         fps=np.int32(conf.uNetdict['frameRate']))
+        if verb:
+            print(f' - Post-filter applied: {method_to_call.__name__}')
+
+
+    return r_ppgs_detrend
 
 
 def get_winsize(videoFileName):
