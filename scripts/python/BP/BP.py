@@ -116,19 +116,20 @@ class BPsignal:
 
         fig.show(renderer=self.renderer)
 
-    def getCWT(self, sig, range_freq:[float], num_scales:int, overlap=0, fps=100):
+    def getCWT(self, sig, range_freq:[float], num_scales:int, winsize, overlap=0, fps=100):
         sig = np.copy(sig)
 
         scales = compute_scales(range_freq, num_scales, fps)
 
         # OVERLAPPING
         if overlap == 0:
-            overlap = 256
+            overlap = winsize
+        overlap = int(overlap * fps)
 
         # WINDOWING
         CWT = []
         sig_windows = []
-        windowing = 256
+        windowing = int(winsize * fps)
         i = 0
         while (i + windowing - 1) < len(sig):
             signal_window = sig[i:i + windowing]

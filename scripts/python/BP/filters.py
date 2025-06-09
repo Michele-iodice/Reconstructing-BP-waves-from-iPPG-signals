@@ -1,8 +1,6 @@
 import numpy as np
 from scipy import stats
 from scipy.signal import butter, filtfilt
-from scipy import interpolate, sparse
-from scipy.sparse.linalg import spsolve
 
 """
 This module contains a collection of filter methods.
@@ -64,7 +62,8 @@ def BPfilter(sig, **kargs):
     x = np.array(sig)
     b, a = butter(kargs['order'], Wn=[kargs['minHz'],
                                       kargs['maxHz']], fs=kargs['fps'], btype='bandpass')
-    y = filtfilt(b, a, x, axis=0, padlen=(x.shape[0]-1))
+    padlen = (x.shape[2]-1)
+    y = filtfilt(b, a, x, axis=2, padlen=padlen)
     return y
 
 
@@ -82,8 +81,12 @@ def zscorerange(sig, **kargs):
     Z-score filter for RGB signal.
     """
     x = np.array(sig)
-    y = stats.zscore(x, axis=2)
+    mean = np.mean(x, axis=2, keepdims=True)
+    std = np.std(x, axis=2, keepdims=True)
+    std[std < 1e-6] = 1e-6  # no std=0
+    y = (x - mean) / std
     y = np.clip(y, kargs['minR'], kargs['maxR'])
+
     return y
 
 

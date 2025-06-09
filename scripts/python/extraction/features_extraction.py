@@ -75,7 +75,11 @@ def extract_feature_on_dataset(conf,dataset_path):
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
             sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-            cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50)
+            cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp,
+                                                  range_freq=[0.6, 4.5],
+                                                  num_scales=256,
+                                                  winsize=np.float32(np.float32(conf.sigdict['winsize'])),
+                                                  overlap=np.float32(conf.sigdict['stride']))
             plotCWT(cwt_bp[0], fps=100)
             plotSignal(sig_bp_windows[0])
 
@@ -85,12 +89,13 @@ def extract_feature_on_dataset(conf,dataset_path):
             subjectId = getSubjectId(videoFileName)
             sex = getSex(subjectId)
             sigEX = extract_Sig(videoFileName, conf, method=conf.uNetdict['rppg_method'])
-            print(sigEX.shape)
-            plotSignal(sigEX[0])
             if sigEX is None:
                 print('\nError:No signal extracted.')
                 print('\nDiscarded video.')
                 continue
+
+            print(sigEX[0].shape)
+            plotSignal(sigEX[0])
 
             cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35, verbose=True)
             plotCWT(cwt_ippg[0], fps=100)

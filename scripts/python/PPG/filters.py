@@ -54,8 +54,6 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
 
 
 def interpolation(sig, **kargs):
-    print(sig.shape)
-    print(sig)
     fps = kargs['fps']
     time = np.linspace(0, (len(sig) - 1) / fps, int(len(sig) * (100 / fps)))
     x = np.linspace(0, (len(sig) - 1) / fps, len(sig))
