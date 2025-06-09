@@ -4,7 +4,7 @@ import torch.optim as optim
 import json
 from torch.utils.data import DataLoader, TensorDataset
 from model.unet_ippg_cwt import UNet, ModelAdapter
-from extraction.feature_extraction import extract_feature_on_dataset
+from extraction.features_extraction import extract_feature_on_dataset
 from model.utils import split_data, train_model, plot_train, test_model
 from config import Configuration
 import numpy as np
