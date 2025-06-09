@@ -424,7 +424,7 @@ def plotComparison(GT_signal, predicted_signal):
     plt.show()
 
 def plotSignal(signal):
-    time_len= len(signal[0][0][0])
+    time_len= len(signal)
     time = np.linspace(0, 2.5, time_len)
     plt.figure(figsize=(12, 6))
     plt.plot(time, signal, label='Signal', linestyle='-', color='black')

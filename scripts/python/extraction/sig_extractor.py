@@ -16,7 +16,7 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS', post_filter=Tr
     """the method extract and pre-processing a rgb signal from a video or path"""
 
     winsize= np.int32(conf.sigdict['winsize'])
-    if get_winsize(videoFileName)<30:
+    if get_winsize(videoFileName)<winsize:
         winsize=get_winsize(videoFileName)
 
     roi_method=conf.sigdict['method']
@@ -93,7 +93,7 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS', post_filter=Tr
 
     # 6. rPPG extraction
     if verb:
-        print("\nBVP extraction...")
+        print("\n rPPG extraction...")
         print(" - Extraction method: " + method)
 
     module = import_module('PPG.methods')
@@ -106,11 +106,13 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS', post_filter=Tr
     else:
         pars = {}
 
+    print(filtered_normal_sig[0].shape)
     r_ppgs_win = RGB_sig_to_rPPG(filtered_normal_sig,
                                  fps,
                                  method=method_to_call,
                                  params=pars)
 
+    print(r_ppgs_win[0].shape)
     # 7. POST FILTERING
     if post_filter:
         module = import_module('PPG.filters')

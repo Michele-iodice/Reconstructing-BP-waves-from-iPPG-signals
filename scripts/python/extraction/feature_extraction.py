@@ -1,10 +1,8 @@
 import re
-
 import h5py
 import numpy as np
-import pandas as pd
-
-from extraction.signal_to_cwt import signal_to_cwt
+from model.utils import plotSignal
+from extraction.signal_to_cwt import signal_to_cwt, plotCWT
 from my_pyVHR.datasets.dataset import datasetFactory
 from dataset.bp4d import BP4D
 from extraction.sig_extractor import extract_Sig, post_filtering
@@ -72,23 +70,31 @@ def extract_feature_on_dataset(conf,dataset_path):
 
     with h5py.File(dataset_path, "a") as f:
         for idx in range(0, dataset_len):
+            # GT
             fname = dataset.getSigFilename(idx)
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
             sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
             cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50)
+            plotCWT(cwt_bp[0], fps=100)
+            plotSignal(sig_bp_windows[0])
 
+            # Videos
             videoFileName = dataset.getVideoFilename(idx)
             print('videoFileName: ', videoFileName)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(subjectId)
             sigEX = extract_Sig(videoFileName, conf, method=conf.uNetdict['rppg_method'])
+            print(sigEX.shape)
+            plotSignal(sigEX[0])
             if sigEX is None:
                 print('\nError:No signal extracted.')
                 print('\nDiscarded video.')
                 continue
 
             cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35, verbose=True)
+            plotCWT(cwt_ippg[0], fps=100)
+            plotSignal(sig_ippg_windows[0])
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"

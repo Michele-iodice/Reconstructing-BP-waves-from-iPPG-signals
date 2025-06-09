@@ -32,17 +32,12 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
         params['fps'] = np.float32(fps)
     filtered_windowed_sig = []
     for idx in range(len(windowed_sig)):
-        transform = False
+
         sig = np.copy(windowed_sig[idx])
-        if len(sig.shape) == 2:
-            transform = True
-            sig = np.expand_dims(sig, axis=1)
         if params == {}:
             filt_temp = filter_func(sig)
         else:
             filt_temp = filter_func(sig, **params)
-        if transform:
-            filt_temp = np.squeeze(filt_temp, axis=1)
 
         filtered_windowed_sig.append(filt_temp)
 
@@ -55,6 +50,8 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
 
 
 def interpolation(sig, **kargs):
+    print(sig.shape)
+    print(sig)
     fps = kargs['fps']
     time = np.linspace(0, (len(sig) - 1) / fps, int(len(sig) * (100 / fps)))
     x = np.linspace(0, (len(sig) - 1) / fps, len(sig))
@@ -64,9 +61,9 @@ def interpolation(sig, **kargs):
         sig = sig[:min_len]
 
     interp_func = interpolate.interp1d(x, sig, kind='linear')
-    signal = interp_func(time)
+    interp_signal = interp_func(time)
 
-    return signal
+    return interp_signal
 
 def detrend(sig):
 
