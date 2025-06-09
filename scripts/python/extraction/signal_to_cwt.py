@@ -70,6 +70,8 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
     for signal_window in signal:
 
         if signal_window.shape[0] == 0 or signal_window.shape[1] <= 1:
+            if verbose:
+                print(f"DISCARDED: Signal with NaN/Inf at index {i}")
             continue
 
         frac_nan = np.sum(np.isnan(signal_window)) / len(signal_window)
