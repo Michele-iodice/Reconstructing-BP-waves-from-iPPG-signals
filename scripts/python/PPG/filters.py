@@ -34,6 +34,10 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
     for idx in range(len(windowed_sig)):
 
         sig = np.copy(windowed_sig[idx])
+        if sig.shape[0] == 0 or sig.shape[1] <= 1:
+            filtered_windowed_sig.append(sig)
+            continue
+
         if params == {}:
             filt_temp = filter_func(sig)
         else:

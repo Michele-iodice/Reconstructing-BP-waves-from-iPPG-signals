@@ -69,6 +69,9 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
     i = 0
     for signal_window in signal:
 
+        if signal_window.shape[0] == 0 or signal_window.shape[1] <= 1:
+            continue
+
         frac_nan = np.sum(np.isnan(signal_window)) / len(signal_window)
         if frac_nan >= nan_threshold:
             if verbose:

@@ -3,7 +3,7 @@ import numpy as np
 
 def signals_to_rppg(sig, method, params={}):
     """
-    Transform an input RGB signal in a BVP signal using a rPPG
+    Transform an input RGB signal in a PPG signal using a rPPG
     method (see PPG.methods).
     This method must use and execute on CPU.
     You can pass also non-RGB signal but the method used must handle its shape.
