@@ -181,7 +181,7 @@ def cpu_GREEN(signal):
     Verkruysse, W., Svaasand, L. O., & Nelson, J. S. (2008). Remote plethysmographic imaging using ambient light. Optics express, 16(26), 21434-21445.
     """
     green_channel = signal[:, 1, :]
-    return green_channel.mean(axis=1)
+    return green_channel
 
 
 def cpu_OMIT(signal):

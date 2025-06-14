@@ -3,7 +3,7 @@ import cv2
 from my_pyVHR.extraction.sig_extraction_methods import SignalProcessingParams
 from my_pyVHR.extraction.skin_extraction_methods import SkinExtractionFaceParsing, SkinProcessingParams
 from my_pyVHR.extraction.sig_processing import SignalProcessing
-from my_pyVHR.extraction.utils import get_fps, sig_windowing
+from my_pyVHR.extraction.utils import get_fps, sig_windowing, ppg_sig_windowing
 from BP.filters import *
 from PPG.filters import *
 from scipy import interpolate, sparse
@@ -46,8 +46,6 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
     sig_extract = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=2)
     sig_extract = np.transpose(sig_extract, (1, 2, 0))
     sig.append(sig_extract)
-    print(sig[0].shape)
-    print(sig[0])
     if len(sig) <= 0:
         print('\nError:No signal extracted.')
         return None
@@ -73,9 +71,6 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
                                            'fps': 'adaptive',
                                            'order': 2})
 
-    print(filtered_bp_sig[0].shape)
-    print(filtered_bp_sig[0])
-
     if verb:
         print(f' - Pre-filter applied: {method_to_call.__name__}')
 
@@ -85,9 +80,6 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
                                        method_to_call,
                                        params={'minR': filter_range[0],
                                                'maxR': filter_range[1]})
-
-    print(filtered_normal_sig[0].shape)
-    print(filtered_normal_sig[0])
 
     if verb:
         print(f' - Pre-filter applied: {method_to_call.__name__}')
@@ -112,8 +104,6 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
                                  method=method_to_call,
                                  params=pars)
 
-    print(r_ppgs_win[0].shape)
-
     # 6. POST FILTERING
     module = import_module('PPG.filters')
     method_to_call = getattr(module, 'interpolation')
@@ -125,25 +115,22 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
     if verb:
         print(f' - Post-filter applied: {method_to_call.__name__}')
 
-    print(r_ppgs_interp[0].shape)
-
     method_to_call = getattr(module, 'detrend')
     r_ppgs_detrend = apply_ppg_filter(r_ppgs_interp,
                                       method_to_call,
                                       fps=np.int32(conf.uNetdict['frameRate']))
-    print(r_ppgs_detrend[0].shape)
+
     if verb:
         print(f' - Post-filter applied: {method_to_call.__name__}')
 
     # 7. Sig Windowing
-    windowed_sig, timesES = sig_windowing(r_ppgs_detrend[0], winsize, stride, fps)
+    windowed_sig, timesES = ppg_sig_windowing(r_ppgs_detrend[0], winsize, stride, fps)
     if len(windowed_sig) <= 0:
-        print('\nError:No windowed signal.')
         return None
 
     if verb:
         print(f' - Number of windows: {len(windowed_sig)}')
-        print(' - Win size: (#Estimators, #Channels, #Frames) = ', windowed_sig[0].shape)
+        print(' - Win size: (#Estimators, #Frames) = ', windowed_sig[0].shape)
 
 
     return windowed_sig, timesES

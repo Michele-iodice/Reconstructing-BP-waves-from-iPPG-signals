@@ -55,34 +55,44 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
 
 def interpolation(sig, **kargs):
     fps = kargs['fps']
-    time = np.linspace(0, (len(sig) - 1) / fps, int(len(sig) * (100 / fps)))
-    x = np.linspace(0, (len(sig) - 1) / fps, len(sig))
-    if len(x) != len(sig):
-        min_len = min(len(x), len(sig))
-        x = x[:min_len]
-        sig = sig[:min_len]
 
-    interp_func = interpolate.interp1d(x, sig, kind='linear')
-    interp_signal = interp_func(time)
+    interp_signals = []
 
-    return interp_signal
+    for s in sig:
+        time = np.linspace(0, (len(s) - 1) / fps, int(len(s) * (100 / fps)))
+        x = np.linspace(0, (len(s) - 1) / fps, len(s))
+        if len(x) != len(s):
+            min_len = min(len(x), len(s))
+            x = x[:min_len]
+            s = s[:min_len]
+
+        interp_func = interpolate.interp1d(x, s, kind='linear')
+        interp_signal = interp_func(time)
+        interp_signals.append(interp_signal)
+
+    interp_signal_return = np.stack(interp_signals, axis=0)
+
+    return interp_signal_return
 
 def detrend(sig):
+    signals = []
+    for s in sig:
+        lambda_ = 470  # Smoothing parameter
+        T = len(s)
 
-    lambda_ = 470  # Smoothing parameter
-    T = len(sig)
+        # Identity matrix (sparse)
+        I = sparse.eye(T)
 
-    # Identity matrix (sparse)
-    I = sparse.eye(T)
+        # Second-order difference matrix D (sparse)
+        data = [np.ones(T), -2 * np.ones(T), np.ones(T)]
+        offsets = [0, 1, 2]
+        D2 = sparse.diags(data, offsets, shape=(T - 2, T))
 
-    # Second-order difference matrix D (sparse)
-    data = [np.ones(T), -2 * np.ones(T), np.ones(T)]
-    offsets = [0, 1, 2]
-    D2 = sparse.diags(data, offsets, shape=(T - 2, T))
+        # Solve (I + λ^2 * D^T D) * z = signal
+        H = I + lambda_ ** 2 * D2.T @ D2
+        z = spsolve(H, s)
+        signal = s - z
+        signals.append(signal)
 
-    # Solve (I + λ^2 * D^T D) * z = signal
-    H = I + lambda_ ** 2 * D2.T @ D2
-    z = spsolve(H, sig)
-    signal = sig - z
-
-    return signal
+    detrend_signal = np.stack(signals, axis=0)
+    return detrend_signal

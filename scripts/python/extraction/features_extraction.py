@@ -80,28 +80,25 @@ def extract_feature_on_dataset(conf,dataset_path):
                                                   num_scales=256,
                                                   winsize=np.float32(np.float32(conf.sigdict['winsize'])),
                                                   overlap=np.float32(conf.sigdict['stride']))
-            plotCWT(cwt_bp[0], fps=100)
-            plotSignal(sig_bp_windows[0])
 
             # Videos
             videoFileName = dataset.getVideoFilename(idx)
             print('videoFileName: ', videoFileName)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(subjectId)
-            sigEX = extract_Sig(videoFileName, conf, method=conf.uNetdict['rppg_method'])
+            sigEX, timesES = extract_Sig(videoFileName, conf, method=conf.uNetdict['rppg_method'])
             if sigEX is None:
                 print('\nError:No signal extracted.')
                 print('\nDiscarded video.')
                 continue
 
-            print(sigEX[0].shape)
-            plotSignal(sigEX[0])
-
             cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35, verbose=True)
-            plotCWT(cwt_ippg[0], fps=100)
-            plotSignal(sig_ippg_windows[0])
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
+                plotCWT(cwt_ippg[i], fps=100)
+                plotSignal(sig_ippg_windows[i])
+                plotCWT(cwt_bp[i], fps=100)
+                plotSignal(sig_bp_windows[i])
                 group_id = f"{subjectId}_{idx}_{i}"
                 save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
 

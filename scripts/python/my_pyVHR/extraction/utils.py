@@ -53,7 +53,7 @@ def sig_windowing(sig, wsize, stride, fps):
         A list of ndarray (float32) with shape [num_estimators, rgb_channels, window_frames],
         an array (float32) of times in seconds (win centers)
     """
-    N = sig.shape[0]
+    N = sig.shape[1]
     block_idx, timesES = sliding_straded_win_idx(N, wsize, stride, fps)
     block_signals = []
     for e in block_idx:
@@ -94,6 +94,30 @@ def raw_windowing(raw_signal, wsize, stride, fps):
         est_idx[zero_idx] = False
         # append traces
         block_signals.append(wind_signal[est_idx])
+    return block_signals, timesES
+
+def ppg_sig_windowing(sig, wsize, stride, fps):
+    """
+    This method is used to divide a rPPG signal into overlapping windows.
+
+    Args:
+        sig (float32 ndarray): ndarray with shape [num_estimators, num_frames].
+        wsize (float): window size in seconds.
+        stride (float): stride between overlapping windows in seconds.
+        fps (float): frames per seconds.
+
+    Returns:
+        A list of ndarray (float32) with shape [num_estimators, window_frames],
+        an array (float32) of times in seconds (win centers)
+    """
+    N = sig.shape[1]
+    block_idx, timesES = sliding_straded_win_idx(N, wsize, stride, fps)
+    block_signals = []
+    for e in block_idx:
+        st_frame = int(e[0])
+        end_frame = int(e[-1])
+        wind_signal = np.copy(sig[:, st_frame:end_frame + 1])
+        block_signals.append(wind_signal.astype(np.float32))
     return block_signals, timesES
 
 

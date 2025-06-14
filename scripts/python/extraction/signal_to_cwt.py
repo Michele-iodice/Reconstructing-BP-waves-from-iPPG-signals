@@ -69,7 +69,10 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
     i = 0
     for signal_window in signal:
 
-        if signal_window.shape[0] == 0 or signal_window.shape[1] <= 1:
+        if signal_window.ndim == 2:
+            signal_window = np.ravel(signal_window)
+
+        if signal_window.shape[0] == 0:
             if verbose:
                 print(f"DISCARDED: Signal with NaN/Inf at index {i}")
             continue
