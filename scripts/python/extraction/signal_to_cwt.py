@@ -168,7 +168,7 @@ def plotCWT(cwt_sig,fps=100):
 
     plt.figure(figsize=(10, 5))
     plt.pcolormesh(time, freqs, power, shading='auto', cmap='jet')
-    plt.yscale('log')
+    plt.gca().invert_yaxis()
     plt.xlabel('Time (s)')
     plt.ylabel('Frequency (Hz)')
     plt.title('CWT Scalogram')
