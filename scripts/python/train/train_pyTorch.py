@@ -38,13 +38,14 @@ def train_models(config, extract_data=False,):
 
     x_train, x_test, x_val, y_train, y_test, y_val = split_data(data_path)
 
-    x_train_torch = torch.tensor(x_train).float()  # [N, 1, 256, 256]
+    x_train_torch = torch.tensor(x_train).float()  # [N, 2, 256, 256]
     x_val_torch = torch.tensor(x_val).float()
     x_test_torch = torch.tensor(x_test).float()
 
     y_train_torch = torch.tensor(y_train).float()
     y_val_torch = torch.tensor(y_val).float()
     y_test_torch = torch.tensor(y_test).float()
+
     in_channels = x_train_torch.shape[1]
     base_model = UNet(True,
                       in_channel=in_channels,

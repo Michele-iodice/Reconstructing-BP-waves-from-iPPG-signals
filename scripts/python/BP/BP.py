@@ -129,7 +129,7 @@ class BPsignal:
         # WINDOWING
         CWT = []
         sig_windows = []
-        windowing = int(winsize * fps)
+        windowing = round(winsize * fps)
         i = 0
         while (i + windowing - 1) < len(sig):
             signal_window = sig[i:i + windowing]

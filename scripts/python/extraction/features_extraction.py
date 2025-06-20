@@ -95,10 +95,6 @@ def extract_feature_on_dataset(conf,dataset_path):
             cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35, verbose=True)
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
-                plotCWT(cwt_ippg[i], fps=100)
-                plotSignal(sig_ippg_windows[i])
-                plotCWT(cwt_bp[i], fps=100)
-                plotSignal(sig_bp_windows[i])
                 group_id = f"{subjectId}_{idx}_{i}"
                 save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
 
@@ -116,7 +112,6 @@ def extract_feature_on_video(video, bp, dataset_path, conf):
         bpGT = sigGT.getSig()
         sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
         cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50)
-
         subjectId = getSubjectId(fname)
         sex = getSex(subjectId)
         sigEX = extract_Sig(fname, conf, method=conf.uNetdict['rppg_method'])
