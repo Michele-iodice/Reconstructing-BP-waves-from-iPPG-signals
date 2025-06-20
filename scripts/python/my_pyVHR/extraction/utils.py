@@ -118,7 +118,7 @@ def ppg_sig_windowing(sig, wsize, stride, fps):
         end_frame = int(e[-1])
         wind_signal = np.copy(sig[:, st_frame:end_frame + 1])
         block_signals.append(wind_signal.astype(np.float32))
-    return block_signals, timesES
+    return np.array(block_signals), timesES
 
 
 def sliding_straded_win_idx(N, wsize, stride, fps):

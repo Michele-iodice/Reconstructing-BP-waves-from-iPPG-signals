@@ -51,11 +51,10 @@ def smart_interpolation(x):
 def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_threshold=0.3, verbose=False):
     """
     signal: full iPPG or BP signal (sampling frequency=fps)
-    overlap: 0 for no overlap; N for an overlap on N samples
-    norm: 0 for no standardization (BP); 1 for standardization (iPPG)
-    detrend: 0 for no detrending (BP) 1 for detrending (iPPG)
-    recover: 0 for no mean recovery (iPPG), 1 to add mean back to CWT (BP)
+    range_freq: range of frequencies to use to compute the scales
+    num_scales: number of scales to use
     fps: sampling frequency of the signal
+    nan_threshold: threshold to use for limit the nan values
     """
     if verbose:
         print("-post-filter applied: Standardization")
@@ -86,14 +85,6 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
         # SIGNAL CLEANING
         if np.any(np.isnan(signal_window)):
             signal_window = smart_interpolation(signal_window)
-
-        # Standardization
-        mean = np.mean(signal_window)
-        std = np.std(signal_window)
-        if std < 1e-6:
-            std = 1e-6
-
-        signal_window = (signal_window - mean) / std
 
         # Compute CWT
         cwt_result, _ = pywt.cwt(signal_window, scales, 'cmor1.5-1.0', sampling_period=1/fps)

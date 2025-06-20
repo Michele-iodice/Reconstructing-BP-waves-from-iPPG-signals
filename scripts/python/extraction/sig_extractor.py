@@ -54,37 +54,7 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
         print(' - Extraction approach: ' + roi_approach)
         print(' - Extraction method: ' + roi_method)
 
-    # 4. PRE FILTERING
-    if verb:
-        print('\nPre filtering...')
-    filtered_sig = sig
-
-    minHz = np.float32(conf.sigdict['minHz'])  # min heart frequency in Hz
-    maxHz = np.float32(conf.sigdict['maxHz'])  # max heart frequency in Hz
-    module = import_module('BP.filters')
-    method_to_call = getattr(module, 'BPfilter')
-    filtered_bp_sig = apply_filter(filtered_sig,
-                                   method_to_call,
-                                   fps=fps,
-                                   params={'minHz': minHz,
-                                           'maxHz': maxHz,
-                                           'fps': 'adaptive',
-                                           'order': 2})
-
-    if verb:
-        print(f' - Pre-filter applied: {method_to_call.__name__}')
-
-    filter_range=[-1, 1]  # constant range of normalization
-    method_to_call = getattr(module, 'zscorerange')
-    filtered_normal_sig = apply_filter(filtered_bp_sig,
-                                       method_to_call,
-                                       params={'minR': filter_range[0],
-                                               'maxR': filter_range[1]})
-
-    if verb:
-        print(f' - Pre-filter applied: {method_to_call.__name__}')
-
-    # 5. rPPG extraction
+    # 4. rPPG extraction
     if verb:
         print("\nPPG extraction...")
         print(" - Extraction method: " + method)
@@ -99,12 +69,17 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
     else:
         pars = {}
 
-    r_ppgs_win = RGB_sig_to_rPPG(filtered_normal_sig,
+    sig = np.array(sig)
+    r_ppgs_win = RGB_sig_to_rPPG(sig,
                                  fps,
                                  method=method_to_call,
                                  params=pars)
 
-    # 6. POST FILTERING
+    # 5. PRE FILTERING
+    if verb:
+        print('\nPre filtering...')
+
+
     module = import_module('PPG.filters')
     method_to_call = getattr(module, 'interpolation')
     fps = np.int32(conf.uNetdict['frameRate'])
@@ -113,7 +88,7 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
                                      fps=fps,
                                      params={'fps': fps})
     if verb:
-        print(f' - Post-filter applied: {method_to_call.__name__}')
+        print(f' - filter applied: {method_to_call.__name__}')
 
     method_to_call = getattr(module, 'detrend')
     r_ppgs_detrend = apply_ppg_filter(r_ppgs_interp,
@@ -121,10 +96,11 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
                                       fps=np.int32(conf.uNetdict['frameRate']))
 
     if verb:
-        print(f' - Post-filter applied: {method_to_call.__name__}')
+        print(f' - filter applied: {method_to_call.__name__}')
 
-    # 7. Sig Windowing
+    # 6. Sig Windowing
     windowed_sig, timesES = ppg_sig_windowing(r_ppgs_detrend[0], winsize, stride, fps)
+
     if len(windowed_sig) <= 0:
         return None
 
@@ -132,8 +108,22 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
         print(f' - Number of windows: {len(windowed_sig)}')
         print(' - Win size: (#Estimators, #Frames) = ', windowed_sig[0].shape)
 
+    # 7. Post Filtering
 
-    return windowed_sig, timesES
+    # constant range of standardization
+    minR = np.int32(conf.sigdict["minHz"])
+    maxR = np.int32(conf.sigdict["maxHz"])
+    method_to_call = getattr(module, 'zscorerange')
+    filtered_normal_sig = apply_ppg_filter(windowed_sig,
+                                       method_to_call,
+                                       params={'minR': minR,
+                                               'maxR': maxR})
+
+    if verb:
+        print(f' - Post-filter applied: {method_to_call.__name__}')
+
+
+    return filtered_normal_sig, timesES
 
 
 def get_winsize(videoFileName):

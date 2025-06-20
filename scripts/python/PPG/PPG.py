@@ -12,7 +12,7 @@ def signals_to_rppg(sig, method, params={}):
         sig (float32 ndarray): RGB Signal as float32 ndarray with shape  [num_estimators, rgb_channels, num_frames].
             You can pass also a generic signal but the method used must handle its shape and type.
         method: a method that comply with the fucntion signature documented
-            in pyVHR.BVP.methods. This method must use Numpy.
+            in PPG.methods. This method must use Numpy.
         params (dict): dictionary of usefull parameters that will be passed to the method.
 
     Returns:
@@ -34,7 +34,7 @@ def RGB_sig_to_rPPG(windowed_sig, fps, method=None, params={}):
     You can pass also non-RGB signal but the method used must handle its shape.
 
     Args:
-        windowed_sig (list): RGB windowed signal as a list of length num_windows of np.ndarray with shape [num_estimators, rgb_channels, num_frames].
+        windowed_sig (np.array): RGB windowed signal as a list of length num_windows of np.ndarray with shape [num_estimators, rgb_channels, num_frames].
         fps (float): frames per seconds. You can pass also a generic signal but the method used must handle its shape and type.
         method: a method that comply with the fucntion signature documented
             in pyVHR.BVP.methods. This method must use Numpy if the 'device_type' is 'cpu', Torch if the 'device_type' is 'torch', and Cupy
@@ -43,8 +43,8 @@ def RGB_sig_to_rPPG(windowed_sig, fps, method=None, params={}):
             in the dictionary to use the 'fps' input variable.
 
     Returns:
-        a list of lenght num_windows of BVP signals as np.ndarray with shape [num_estimators, num_frames];
-        if no BVP can be found in a window, then the np.ndarray has num_estimators == 0.
+        a list of lenght num_windows of rPPG signals as np.ndarray with shape [num_estimators, num_frames];
+        if no rPPG can be found in a window, then the np.ndarray has num_estimators == 0.
     """
 
     if 'fps' in params and params['fps'] == 'adaptive':
@@ -65,4 +65,4 @@ def RGB_sig_to_rPPG(windowed_sig, fps, method=None, params={}):
         else:
            r_ppgs.append(np.array(r_ppg_nonan, dtype=np.float32))
 
-    return r_ppgs
+    return np.array(r_ppgs)

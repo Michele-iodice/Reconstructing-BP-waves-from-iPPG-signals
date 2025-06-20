@@ -8,8 +8,8 @@ This module contains a collection of filter methods.
 
 FILTER METHOD SIGNATURE
 A Filter method must accept theese parameters:
-    > signal -> RGB signal as float32 ndarray with shape [num_estimators, rgb_channels, num_frames],
-                or BVP signal as float32 ndarray with shape [num_estimators, num_frames].
+    > signal -> Raw iPPG signal as float32 ndarray with shape [num_estimators, num_frames],
+                or windowing iPPG signals as float32 ndarray with shape [winsize, num_estimators, num_frames].
     > **kargs [OPTIONAL] -> usefull parameters passed to the filter method.
 It must return a filtered signal with the same shape as the input signal.
 """
@@ -20,7 +20,7 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
     Apply a filter method to a windowed rPPG signal.
 
     Args:
-        windowed_sig: list of length num_window of rPPG signal as float32 ndarray with shape [num_estimators, num_frames]
+        windowed_sig: list  of rPPG signal as float32 ndarray with shape [num_estimators, num_frames]
         filter_func: filter method that accept a 'windowed_sig' (implements some filters in PPG.filters).
         params (dict): usefull parameters passed to the filter method.
 
@@ -45,7 +45,7 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
 
         filtered_windowed_sig.append(filt_temp)
 
-    return filtered_windowed_sig
+    return np.array(filtered_windowed_sig)
 
 
 # ------------------------------------------------------------------------------------- #
@@ -96,3 +96,17 @@ def detrend(sig):
 
     detrend_signal = np.stack(signals, axis=0)
     return detrend_signal
+
+
+def zscorerange(sig, **kargs):
+    """
+    Z-score filter for iPPG signal.
+    """
+    x = np.array(sig)
+    mean = np.mean(x, axis=1, keepdims=True)
+    std = np.std(x, axis=1, keepdims=True)
+    std[std < 1e-6] = 1e-6  # no std=0
+    y = (x - mean) / std
+    y = np.clip(y, kargs['minR'], kargs['maxR'])
+
+    return y
