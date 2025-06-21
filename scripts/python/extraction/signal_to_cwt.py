@@ -57,7 +57,6 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
     nan_threshold: threshold to use for limit the nan values
     """
     if verbose:
-        print("-post-filter applied: Standardization")
         print("CWT extraction...")
 
     scales = compute_scales(range_freq, num_scales, fps)

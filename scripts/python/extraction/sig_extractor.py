@@ -17,7 +17,7 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
 
     winsize= np.float32(conf.sigdict['winsize'])
     stride = np.float32(conf.sigdict['stride'])
-    if get_winsize(videoFileName)<30:
+    if get_winsize(videoFileName)<winsize:
         winsize=get_winsize(videoFileName)
 
     roi_method=conf.sigdict['method']
@@ -115,9 +115,9 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
     maxR = np.int32(conf.sigdict["maxHz"])
     method_to_call = getattr(module, 'zscorerange')
     filtered_normal_sig = apply_ppg_filter(windowed_sig,
-                                       method_to_call,
-                                       params={'minR': minR,
-                                               'maxR': maxR})
+                                           method_to_call,
+                                           params={'minR': minR,
+                                                   'maxR': maxR})
 
     if verb:
         print(f' - Post-filter applied: {method_to_call.__name__}')

@@ -74,12 +74,12 @@ def extract_feature_on_dataset(conf,dataset_path):
             fname = dataset.getSigFilename(idx)
             sigGT = dataset.readSigfile(fname)
             bpGT = sigGT.getSig()
-            sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-            cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp,
+            cwt_bp, sig_bp_windows = sigGT.getCWT(bpGT[0],
                                                   range_freq=[0.6, 4.5],
                                                   num_scales=256,
                                                   winsize=np.float32(np.float32(conf.sigdict['winsize'])),
-                                                  overlap=np.float32(conf.sigdict['stride']))
+                                                  overlap=np.float32(conf.sigdict['stride']),
+                                                  fps= np.int32(conf.sigdict['SIG_SampleRate']))
 
             # Videos
             videoFileName = dataset.getVideoFilename(idx)
@@ -92,7 +92,12 @@ def extract_feature_on_dataset(conf,dataset_path):
                 print('\nDiscarded video.')
                 continue
 
-            cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35, verbose=True)
+            cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,
+                                                       range_freq=[0.6, 4.5],
+                                                       num_scales=256,
+                                                       fps=np.int32(conf.uNetdict['frameRate']),
+                                                       nan_threshold=0.35,
+                                                       verbose=True)
 
             for i in range(min(len(cwt_ippg), len(cwt_bp))):
                 group_id = f"{subjectId}_{idx}_{i}"
