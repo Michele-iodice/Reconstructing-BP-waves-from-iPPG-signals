@@ -313,7 +313,7 @@ def compute_batch_metrics(outputs, targets, criterion):
 
     return loss, mae
 
-def calculate_matrix(signal):
+def calculate_matrix(signal, fs=100):
     """
     This method extracts SBP, DBP and MAP from a BP signal
 
@@ -325,10 +325,10 @@ def calculate_matrix(signal):
     :param signal: BP signal
     :return: SBP, DBP and MAP
     """
-    systolic_peaks_idx, _ = find_peaks(signal,distance=20, prominence=5)
+    systolic_peaks_idx, _ = find_peaks(signal,distance=round(0.5*fs), prominence=1.0)
     systolic_peaks = signal[systolic_peaks_idx]
 
-    diastolic_peaks_idx, _ = find_peaks(-signal,distance=20, prominence=3)
+    diastolic_peaks_idx, _ = find_peaks(-signal,distance=round(0.5*fs), prominence=0.5)
     diastolic_peaks = signal[diastolic_peaks_idx]
 
     sbp = np.mean(systolic_peaks) if len(systolic_peaks) > 0 else np.max(signal)

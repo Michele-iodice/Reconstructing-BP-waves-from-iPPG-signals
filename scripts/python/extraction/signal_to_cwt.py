@@ -7,16 +7,12 @@ from pykalman import KalmanFilter
 
 def compute_scales(range_freq, num_scales, fps):
     """
-    COMPUTE SCALES
-    :return: scales
+        COMPUTE SCALES
+        :return: scales
     """
-    sc_min = range_freq[0]
-    sc_max = range_freq[1]
-    freqs = np.linspace(sc_max, sc_min, num_scales)
-    MorletFourierFactor = 4 * np.pi / (6 + np.sqrt(2 + 6 ** 2))
-    delta = 1 / fps
-    scales = MorletFourierFactor / (freqs * delta)
-
+    f_min, f_max = range_freq
+    frequencies = np.linspace(f_min, f_max, num_scales)
+    scales = pywt.central_frequency('cmor1.5-1.0') * fps / frequencies
     return scales
 
 def spline_interpolation(x):
@@ -104,15 +100,15 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
 
 def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100, recover=False):
     """
-    Approximate the inverse CWT using a summation over scales and time.
+        Approximate the inverse CWT using a complex Morlet wavelet cmor1.5-1.0.
 
-    CWT: Coefficients of the Continuous Wavelet Transform.
-    f_min: Minimum frequency of scales.
-    f_max: Maximum frequency of scales.
-    scales: Scales used in the CWT.
-    time: Array of time points corresponding to the original signal.
-    wavelet_function: The mother wavelet function psi(t).
-    C_psi: The admissibility constant C_psi.
+        :ARGS: CWT: Coefficients of the Continuous Wavelet Transform.
+               f_min: Minimum frequency of scales.
+               f_max: Maximum frequency of scales.
+               num_scales: number of Scales used in the CWT.
+               C_psi: The admissibility constant C_psi.
+               fps: Frequency of the wavelet.
+        :return: reconstructed BP signal.
     """
 
     # params
@@ -144,6 +140,57 @@ def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100,
 
     if recover:
         reconstructed += np.mean(real_part)
+
+    return reconstructed
+
+
+
+def inverse_cwt_robust(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100):
+    """
+    Approximate the inverse CWT using a complex Morlet wavelet cmor1.5-1.0.
+
+    :ARGS: CWT: Coefficients of the Continuous Wavelet Transform.
+           f_min: Minimum frequency of scales.
+           f_max: Maximum frequency of scales.
+           num_scales: number of Scales used in the CWT.
+           C_psi: The admissibility constant C_psi.
+           fps: Frequency of the wavelet.
+    :return: reconstructed BP signal.
+    """
+
+    range_freq = [f_min, f_max]
+    real_part = CWT[0]
+    imag_part = CWT[1]
+    scales = compute_scales(range_freq, num_scales, fps)
+    coeffs = real_part + 1j * imag_part
+    num_scales, num_samples = coeffs.shape
+    dt = 1.0 / fps
+    time = np.arange(num_samples) * dt
+
+    wavelet = pywt.ContinuousWavelet('cmor1.5-1.0')
+    psi, t_psi = wavelet.wavefun(level=10)
+
+    wavelet_peak_idx = np.argmax(np.abs(psi))
+    shift_wavelet = t_psi[wavelet_peak_idx]
+
+    reconstructed = np.zeros(num_samples, dtype=np.float64)
+
+    for i, scale in enumerate(scales):
+        t_scaled = t_psi * scale
+        psi_scaled = psi / np.sqrt(scale)
+        interp_wavelet = interp1d(t_scaled, np.real(psi_scaled), bounds_error=False, fill_value=0.0)
+
+        temp_sum = np.zeros(num_samples, dtype=np.float64)
+
+        for b in range(num_samples):
+            shifted_time = time - time[b] + shift_wavelet * scale
+            wavelet_vals = interp_wavelet(shifted_time)
+            # Correzione: divisione per scale^2 come da formula
+            temp_sum += (np.real(coeffs[i, b]) * wavelet_vals) / (scale ** 2)
+
+        reconstructed += temp_sum
+
+    reconstructed *= dt / C_psi
 
     return reconstructed
 
