@@ -24,3 +24,4 @@ scripts/python/train/result3/weights.pth
 scripts/python/dataset/data1.h5
 scripts/python/dataset/data_POS.h5
 scripts/python/train/result4/weights.pth
+scripts/python/dataset/data_GREEN.h5

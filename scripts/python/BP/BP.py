@@ -5,6 +5,7 @@ import pywt
 from extraction.signal_to_cwt import compute_scales
 from importlib import import_module
 from PPG.filters import *
+from scipy.signal import resample
 
 
 class BPsignal:
@@ -140,7 +141,14 @@ class BPsignal:
 
             cwt_result = cwt_result + np.mean(signal_window)
 
-            cwt_tensor = np.stack([np.real(cwt_result), np.imag(cwt_result)], axis=0)
+            real = np.real(cwt_result)
+            imag = np.imag(cwt_result)
+
+            n_resample= round(winsize * 100)
+            real_resampled = resample(real, n_resample, axis=1)
+            imag_resampled = resample(imag, n_resample, axis=1)
+
+            cwt_tensor = np.stack([real_resampled, imag_resampled], axis=0)
             CWT.append(cwt_tensor)
             sig_windows.append(signal_window)
 
