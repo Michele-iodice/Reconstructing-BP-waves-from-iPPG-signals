@@ -323,6 +323,7 @@ def calculate_matrix(signal, fs=100):
 
       MAP = average of all the samples of the signal
     :param signal: BP signal
+    :param fs: sampling frequency
     :return: SBP, DBP and MAP
     """
     systolic_peaks_idx, _ = find_peaks(signal,distance=round(0.5*fs), prominence=1.0)

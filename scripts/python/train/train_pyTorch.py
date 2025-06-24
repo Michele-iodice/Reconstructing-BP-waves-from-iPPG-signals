@@ -85,7 +85,7 @@ def train_models(config, extract_data=False,):
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     # model summary
-    summary(model, input_size=(2, 256, 256))
+    summary(model, input_size=x_train_torch[0].shape)
 
     # training
     print("start training...\n")
@@ -103,4 +103,4 @@ if __name__ == "__main__":
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-    train_models(config, extract_data=True)
+    train_models(config, extract_data=False)
