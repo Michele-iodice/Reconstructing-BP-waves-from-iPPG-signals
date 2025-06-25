@@ -175,7 +175,7 @@ def test_model(model, criterion, test_loader):
             cwt_true = targets_np[i]
 
             bp_pred = inverse_cwt(cwt_pred, f_min=0.6, f_max=4.5)
-            bp_true = inverse_cwt(cwt_true, f_min=0.6, f_max=4.5, recover=True)
+            bp_true = inverse_cwt(cwt_true, f_min=0.6, f_max=4.5)
 
             sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
             sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
@@ -414,7 +414,7 @@ def plot_train(history):
 
 
 def plotComparison(GT_signal, predicted_signal):
-    time_len= max(len(GT_signal[0][0][0]), len(predicted_signal[0][0][0]))
+    time_len= max(len(GT_signal), len(predicted_signal))
     time = np.linspace(0, 2.5, time_len)
     plt.figure(figsize=(12, 6))
     plt.plot(time, predicted_signal, label='Pred Signal', color='blue')

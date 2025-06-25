@@ -98,54 +98,7 @@ def signal_to_cwt(signal, range_freq:[float], num_scales:int, fps=100, nan_thres
     return CWT, sig_windows
 
 
-def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100, recover=False):
-    """
-        Approximate the inverse CWT using a complex Morlet wavelet cmor1.5-1.0.
-
-        :ARGS: CWT: Coefficients of the Continuous Wavelet Transform.
-               f_min: Minimum frequency of scales.
-               f_max: Maximum frequency of scales.
-               num_scales: number of Scales used in the CWT.
-               C_psi: The admissibility constant C_psi.
-               fps: Frequency of the wavelet.
-        :return: reconstructed BP signal.
-    """
-
-    # params
-    delta = 1 / fps
-    range_freq = [f_min, f_max]
-    real_part = CWT[0]
-    imag_part = CWT[1]
-    scales = compute_scales(range_freq, num_scales, fps)
-    coeffs = real_part + 1j * imag_part
-
-    num_scales, num_samples = coeffs.shape
-    time = np.arange(num_samples) * delta
-    dt = delta
-
-    wavelet = pywt.ContinuousWavelet('cmor1.5-1.0')
-    psi, x = wavelet.wavefun(level=10)
-
-    reconstructed = np.zeros(num_samples, dtype=np.float64)
-
-    for idx, scale in enumerate(scales):
-        t_scaled = x * scale
-        psi_scaled = psi / np.sqrt(scale)
-
-        wavelet_vals = np.interp(time[:, None] - time, t_scaled, np.real(psi_scaled), left=0, right=0)
-        contributions = np.real(coeffs[idx, :] @ wavelet_vals.T) / (scale ** 1.5)
-        reconstructed += contributions
-
-    reconstructed *= dt / C_psi
-
-    if recover:
-        reconstructed += np.mean(real_part)
-
-    return reconstructed
-
-
-
-def inverse_cwt_robust(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100):
+def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100):
     """
     Approximate the inverse CWT using a complex Morlet wavelet cmor1.5-1.0.
 
@@ -195,7 +148,7 @@ def inverse_cwt_robust(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, f
     return reconstructed
 
 
-def plotCWT(cwt_sig,fps=100):
+def plotCWT(cwt_sig,fps=100, title="X"):
     scales = compute_scales([0.6,4.5],256,fps)
     cwt_complex = cwt_sig[0] + 1j * cwt_sig[1]
     power = np.abs(cwt_complex) ** 2
@@ -208,7 +161,8 @@ def plotCWT(cwt_sig,fps=100):
     plt.gca().invert_yaxis()
     plt.xlabel('Time (s)')
     plt.ylabel('Frequency (Hz)')
-    plt.title('CWT Scalogram')
+    s="CWT Scalogram" + title
+    plt.title(s)
     plt.colorbar(label='Power')
     plt.tight_layout()
     plt.show()
