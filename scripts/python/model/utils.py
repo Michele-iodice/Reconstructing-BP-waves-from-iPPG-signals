@@ -188,11 +188,16 @@ def test_model(model, criterion, test_loader):
             all_dbp_true.append(dbp_true)
             all_map_true.append(map_true)
 
-    results = test_metrics_with_bland_altman(
+    results_bhs = test_bhs_standards(
         DBP_true=np.array(all_dbp_true), DBP_pred=np.array(all_dbp_pred),
         MAP_true=np.array(all_map_true), MAP_pred=np.array(all_map_pred),
         SBP_true=np.array(all_sbp_true), SBP_pred=np.array(all_sbp_pred)
     )
+
+    results_aami = test_aami_standards(DBP_true=np.array(all_dbp_true), DBP_pred=np.array(all_dbp_pred),
+        MAP_true=np.array(all_map_true), MAP_pred=np.array(all_map_pred),
+        SBP_true=np.array(all_sbp_true), SBP_pred=np.array(all_sbp_pred))
+
 
     test_results = {
         'Test Loss': [test_loss],
@@ -204,10 +209,12 @@ def test_model(model, criterion, test_loader):
     df_results = pd.DataFrame(test_results)
     df_results.to_csv('result/all_test_results.csv', mode='a', header=not os.path.exists('result/all_test_results.csv'), index=False)
     tqdm.write(f'\nTest Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f} NaN batches: {nan_count}, NaN metrics: {nan_metrics}')
-    save_test(results,'result/test_results.csv')
+    save_test(results_bhs,'result/bhs_standards.csv')
+    save_test_aami(results_aami,'result/aami_standards.csv')
 
 
-def test_metrics_with_bland_altman(DBP_true, DBP_pred, MAP_true, MAP_pred, SBP_true, SBP_pred):
+
+def test_bhs_standards(DBP_true, DBP_pred, MAP_true, MAP_pred, SBP_true, SBP_pred):
     results = {}
 
     # DBP metrics
@@ -248,6 +255,23 @@ def test_metrics_with_bland_altman(DBP_true, DBP_pred, MAP_true, MAP_pred, SBP_t
         tqdm.write(
             f"{key}: MAE={results[key]['MAE']:.3f}, RMSE={results[key]['RMSE']:.3f}, BHS grade={results[key]['BHS_grade']}")
         tqdm.write(f"BHS percentages: {results[key]['BHS_percentages']}")
+
+    return results
+
+
+def test_aami_standards(DBP_true, DBP_pred, MAP_true, MAP_pred, SBP_true, SBP_pred):
+    results = {}
+
+    results['SBP'] = aami_classification(SBP_true, SBP_pred, 'SBP')
+    results['DBP'] = aami_classification(DBP_true, DBP_pred, 'DBP')
+    results['MAP'] = aami_classification(MAP_true, MAP_pred, 'MAP')
+
+    tqdm.write("📊 **AAMI Validation Report**")
+    tqdm.write("----------------------------------")
+    for key in ['DBP', 'MAP', 'SBP']:
+        tqdm.write(f"{key} → ME={results[key]['ME']:.2f} mmHg, SDE={results[key]['SDE']:.2f} mmHg → {'PASS' if results[key]['PASS'] else 'FAIL'}")
+    tqdm.write("----------------------------------")
+    tqdm.write("Criteri: |ME| ≤ 5 mmHg e SDE ≤ 8 mmHg")
 
     return results
 
@@ -374,6 +398,15 @@ def bhs_classification(true_values, pred_values):
     return {'<=5mmHg': p5, '<=10mmHg': p10, '<=15mmHg': p15}, grade
 
 
+def aami_classification(true, pred, label):
+    errors = pred - true
+    ME = np.mean(errors)
+    SDE = np.std(errors, ddof=1)
+    pass_fail = abs(ME) <= 5 and SDE <= 8
+
+    return {"ME": round(ME, 2), "SDE": round(SDE, 2), "PASS": pass_fail}
+
+
 def save_test(results, csv_path):
     rows = []
     for key in ['DBP', 'MAP', 'SBP']:
@@ -385,6 +418,20 @@ def save_test(results, csv_path):
             'BHS <=5 mmHg (%)': results[key]['BHS_percentages']['<=5mmHg'],
             'BHS <=10 mmHg (%)': results[key]['BHS_percentages']['<=10mmHg'],
             'BHS <=15 mmHg (%)': results[key]['BHS_percentages']['<=15mmHg']
+        }
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    df.to_csv(csv_path, index=False)
+
+def save_test_aami(results, csv_path):
+    rows = []
+    for key in ['DBP', 'MAP', 'SBP']:
+        row = {
+            'Type': key,
+            'ME': results[key]['ME'],
+            'SdE': results[key]['SDE'],
+            'PASS': results[key]['PASS']
         }
         rows.append(row)
 

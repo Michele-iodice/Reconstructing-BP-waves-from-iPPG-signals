@@ -2,10 +2,10 @@ import numpy as np
 from scipy.signal import stft
 import plotly.graph_objects as go
 import pywt
+
 from extraction.signal_to_cwt import compute_scales
-from importlib import import_module
-from PPG.filters import *
-from scipy.signal import resample
+from scipy.signal import  butter, filtfilt
+import scipy.signal as sps
 
 
 class BPsignal:
@@ -117,9 +117,17 @@ class BPsignal:
 
         fig.show(renderer=self.renderer)
 
+
     def getCWT(self, sig, range_freq:[float], num_scales:int, winsize, overlap=0, fps=100):
         sig = np.copy(sig)
 
+        sig = BPfilter(sig, fps=fps)
+
+        target_fs = 100
+        decimation_factor = int(fps / target_fs)
+        sig = sps.decimate(sig, decimation_factor, ftype='fir', zero_phase=True)
+
+        fps=target_fs
         scales = compute_scales(range_freq, num_scales, fps)
 
         # OVERLAPPING
@@ -144,14 +152,29 @@ class BPsignal:
             real = np.real(cwt_result)
             imag = np.imag(cwt_result)
 
-            n_resample= round(winsize * 100)
-            real_resampled = resample(real, n_resample, axis=1)
-            imag_resampled = resample(imag, n_resample, axis=1)
-
-            cwt_tensor = np.stack([real_resampled, imag_resampled], axis=0)
+            cwt_tensor = np.stack([real, imag], axis=0)
             CWT.append(cwt_tensor)
             sig_windows.append(signal_window)
 
             i += overlap
 
         return CWT, sig_windows
+
+
+def BPfilter(sig, fps):
+    '''
+    Band Pass filter (using BPM band) for BP signal.
+    :param sig: blood pressure signal
+    :param fps: frames per second
+    :return: filtered blood pressure signal
+    '''
+    sig = np.copy(sig)
+
+    nyq = 0.5 * fps
+    cutoff = 40.0
+    b, a = butter(4, cutoff / nyq, btype='low')
+    sig = filtfilt(b, a, sig)
+
+    return sig
+
+

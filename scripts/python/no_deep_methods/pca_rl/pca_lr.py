@@ -1,0 +1,266 @@
+import numpy as np
+import scipy.signal as sps
+import cv2
+from config import Configuration
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import cross_val_predict
+from my_pyVHR.datasets.dataset import datasetFactory
+from my_pyVHR.extraction.sig_extraction_methods import SignalProcessingParams
+from my_pyVHR.extraction.skin_extraction_methods import SkinExtractionFaceParsing, SkinProcessingParams
+from my_pyVHR.extraction.sig_processing import SignalProcessing
+from my_pyVHR.extraction.utils import get_fps
+import pandas as pd
+
+
+# -----------------------
+# rPPG extraction
+# -----------------------
+
+
+def get_winsize(videoFileName):
+    """
+    This method returns the duration of a video file name or path in sec.
+    """
+    cap = cv2.VideoCapture(videoFileName)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    winsize = frame_count / fps
+    cap.release()
+
+    return winsize
+
+def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
+    """the method extract and pre-processing a rgb signal from a video or path"""
+
+    winsize= np.float32(conf.sigdict['winsize'])
+    stride = np.float32(conf.sigdict['stride'])
+    if get_winsize(videoFileName)<winsize:
+        winsize=get_winsize(videoFileName)
+
+    roi_method=conf.sigdict['method']
+    roi_approach=conf.sigdict['approach']
+
+    sig_processing = SignalProcessing()
+    target_device=conf.sigdict['target_device']
+    # 1. apply the Face parsing extractor method
+    sig_processing.set_skin_extractor(SkinExtractionFaceParsing(target_device))
+    # 2. set sig-processing and skin-processing params
+    SignalProcessingParams.RGB_LOW_TH = np.int32(conf.sigdict['RGB_LOW_TH'])
+    SignalProcessingParams.RGB_HIGH_TH = np.int32(conf.sigdict['RGB_HIGH_TH'])
+    SkinProcessingParams.RGB_LOW_TH = np.int32(conf.sigdict['Skin_LOW_TH'])
+    SkinProcessingParams.RGB_HIGH_TH = np.int32(conf.sigdict['Skin_HIGH_TH'])
+
+
+    fps = get_fps(videoFileName)
+    sig_processing.set_total_frames(30*fps) # set to 0 to process the whole video
+    # 3. ROI selection
+    if verb:
+        print('\nProcessing Video ' + videoFileName)
+        print('\nRoi processing...')
+
+    sig = []
+    # SIG extraction with holistic approach
+    sig_extract = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=2)
+    sig_extract = np.transpose(sig_extract, (1, 2, 0))
+    sig.append(sig_extract)
+    if len(sig) <= 0:
+        print('\nError:No signal extracted.')
+        return None
+
+    if verb:
+        print(' - Extraction approach: ' + roi_approach)
+        print(' - Extraction method: ' + roi_method)
+
+    sig = np.array(sig)
+
+    return sig
+
+
+def extract_rppg(signal, n_components=10):
+    """Estrae rPPG usando residuo PCA sul canale rosso"""
+    red = signal[:, 0, :]
+    pca = PCA(n_components=n_components)
+    transformed = pca.fit_transform(red)
+    recon = pca.inverse_transform(transformed)
+    rppg = (recon - red).mean(axis=1)
+    # Normalizzazione zero-mean e unit-variance
+    rppg = (rppg - np.mean(rppg)) / (np.std(rppg) + 1e-8)
+    return rppg
+
+
+def bandpass_filter(signal, fs=30):
+    b, a = sps.butter(3, [0.5 / (fs / 2), 5 / (fs / 2)], btype='band')
+    return sps.filtfilt(b, a, signal)
+
+
+def select_best_segment(rppg, fs=30, discard_sec=5, segment_sec=10):
+    rppg_clean = rppg[discard_sec*fs : -discard_sec*fs] if len(rppg) > 2*discard_sec*fs else rppg
+    window_len = min(segment_sec * fs, len(rppg_clean))
+    max_var = 0
+    best_segment = rppg_clean[:window_len]
+    best_start = 0
+    for i in range(len(rppg_clean)-window_len):
+        seg = rppg_clean[i:i+window_len]
+        if np.var(seg) > max_var:
+            max_var = np.var(seg)
+            best_segment = seg
+            best_start = i
+    return best_segment, best_start + discard_sec*fs
+
+
+# -----------------------
+# Feature extraction + SBP/DBP dai picchi
+# -----------------------
+def extract_features(rppg, bp_segment, fs=30):
+    peaks, _ = sps.find_peaks(rppg, distance=fs * 0.5)
+    if len(peaks) < 2:
+        intervals = [0]
+        hr = 0
+        amp = 0
+        slope = 0
+        time_rise = 0
+        time_fall = 0
+        area = 0
+    else:
+        intervals = np.diff(peaks) / fs
+        hr = 60 / np.mean(intervals)
+        amp = np.mean(rppg[peaks]) - np.min(rppg)
+        slope = np.max(np.diff(rppg)) if len(rppg) > 1 else 0
+        # tempo di salita e discesa calcolati in modo robusto
+        time_rise = np.mean([np.argmax(rppg[peaks[i]:peaks[i + 1]]) / fs
+                             for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
+        time_fall = np.mean([np.argmin(rppg[peaks[i]:peaks[i + 1]]) / fs
+                             for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
+        area = np.mean([np.sum(rppg[peaks[i]:peaks[i + 1]]) for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
+
+    # --- SBP/DBP dal segnale BP ---
+    if len(bp_segment) < 2:
+        SBP = np.max(bp_segment) if len(bp_segment) > 0 else 0
+        DBP = np.min(bp_segment) if len(bp_segment) > 0 else 0
+    else:
+        bp_peaks, _ = sps.find_peaks(bp_segment, distance=fs * 0.5)
+        sbp_values = bp_segment[bp_peaks] if len(bp_peaks) > 0 else [np.max(bp_segment)]
+        dbp_values = [np.min(bp_segment[bp_peaks[i]:bp_peaks[i + 1]]) for i in range(len(bp_peaks) - 1)] \
+                     if len(bp_peaks) > 1 else [np.min(bp_segment)]
+        SBP = np.mean(sbp_values)
+        DBP = np.mean(dbp_values)
+
+    features = [np.mean(intervals), hr, amp, slope, time_rise, time_fall, area]
+    return features, SBP, DBP
+
+
+# -----------------------
+# Metriche BP
+# -----------------------
+def evaluate_bp(y_true, y_pred):
+    mae = np.mean(np.abs(y_true - y_pred))
+    rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
+    return mae, rmse
+
+
+def check_aami(y_true, y_pred):
+    mae, rmse = evaluate_bp(y_true, y_pred)
+    errors = np.abs(y_true - y_pred)
+    compliant = mae <= 5 and np.std(errors) <= 8
+    return compliant, mae, rmse
+
+
+def check_bhs(y_true, y_pred):
+    diff = np.abs(y_true - y_pred)
+    p5 = np.sum(diff < 5) / len(diff) * 100
+    p10 = np.sum(diff < 10) / len(diff) * 100
+    p15 = np.sum(diff < 15) / len(diff) * 100
+    grade = 'C'
+    if p5 >= 60 and p10 >= 85 and p15 >= 95:
+        grade = 'A'
+    elif p5 >= 50 and p10 >= 75 and p15 >= 90:
+        grade = 'B'
+    return grade, p5, p10, p15
+
+def evaluate_metrics(y_true, y_pred):
+    aami_compliant, mae,rmse = check_aami(y_true, y_pred)
+    grade, p5, p10, p15 = check_bhs(y_true, y_pred)
+
+    return {
+        'MAE': mae, 'RMSE': rmse,
+        'AAMI': aami_compliant, 'Perc_<5': p5, 'Perc_<10': p10, 'Perc_<15': p15,
+        'BHS': grade
+    }
+
+# -----------------------
+# Pipeline principale
+# -----------------------
+conf = Configuration('C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+
+X_feats, y_sbp, y_dbp = [], [], []
+
+datasetName = conf.datasetdict['dataset']
+path = conf.datasetdict['path']
+videodataDIR = conf.datasetdict['videodataDIR']
+BVPdataDIR = conf.datasetdict['BVPdataDIR']
+
+dataset = datasetFactory(datasetName, videodataDIR, BVPdataDIR, path)
+dataset_len = dataset.len_dataset()
+print('dataset len: ', dataset_len)
+
+for idx in range(dataset_len):
+    videoFileName = dataset.getVideoFilename(idx)
+    print('Processing video:', videoFileName)
+
+    # --- Estrazione segnale RGB dal video ---
+    sig = extract_Sig(videoFileName, conf, verb=False)
+
+    fs = get_fps(videoFileName)
+    if fs is None or fs <= 0:
+        fs = 30
+
+    # --- Elaborazione rPPG ---
+    rppg = extract_rppg(sig[0])
+    rppg, start_idx = select_best_segment(rppg, fs)
+    rppg = bandpass_filter(rppg, fs)
+
+    # --- Segnale BP corrispondente ---
+    fname = dataset.getSigFilename(idx)
+    sigGT = dataset.readSigfile(fname)
+    bpGT = sigGT.getSig()  # segnale continuo BP
+    end_idx = start_idx + 10 * fs  # 10s segmento
+    bp_segment = bpGT[start_idx:end_idx] # segmento corrispondente ai 10s selezionati
+
+    # --- Feature extraction + SBP/DBP dai picchi ---
+    feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
+
+    X_feats.append(feats)
+    y_sbp.append(SBP)
+    y_dbp.append(DBP)
+
+# -----------------------
+# Regressione e cross-validation
+# -----------------------
+X_feats = np.array(X_feats)
+poly = PolynomialFeatures(2)
+X_poly = poly.fit_transform(X_feats)
+
+cv_folds = min(9, len(X_feats))
+
+# --- SBP ---
+lr_sbp = LinearRegression()
+cv_folds = min(9, len(X_feats))  # numero di fold sicuro
+# predizioni out-of-fold per avere metriche realistiche
+y_pred_sbp = cross_val_predict(lr_sbp, X_poly, y_sbp, cv=cv_folds)
+metrics_sp = evaluate_metrics(y_sbp, y_pred_sbp)
+
+# --- DBP ---
+lr_dbp = LinearRegression()
+y_pred_dbp = cross_val_predict(lr_dbp, X_poly, y_dbp, cv=cv_folds)
+metrics_dp = evaluate_metrics(y_dbp, y_pred_dbp)
+# -----------------------
+# Creazione DataFrame finale
+# -----------------------
+results = pd.DataFrame([
+    {'Target':'SP', **metrics_sp},
+    {'Target':'DP', **metrics_dp}
+])
+results.to_csv('pcalr_results.csv', index=False)
+print(results)

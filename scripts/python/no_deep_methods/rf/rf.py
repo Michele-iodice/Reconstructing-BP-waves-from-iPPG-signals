@@ -1,0 +1,232 @@
+import pandas as pd
+import numpy as np
+from scipy.signal import find_peaks
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn import metrics
+from collections import defaultdict
+import h5py
+
+# -------------------------
+# Parametri
+# -------------------------
+fs = 125  # frequenza di campionamento
+window_size_sec = 8  # durata finestra come nel MATLAB (0:0.008:7.999)
+window_samples = fs * window_size_sec
+v = [0.1, 0.25, 0.33, 0.5, 0.66, 0.75]  # livelli percentuali PPG
+
+
+# -------------------------
+# Funzione per estrarre feature
+# -------------------------
+def extract_features(ppg, bp):
+    # --- PPG derivata seconda ---
+    ppg_2nd = np.gradient(np.gradient(ppg))
+
+    # --- Picchi PPG e minimi ---
+    pk, loc = find_peaks(ppg)
+    PPG1 = np.max(ppg) - ppg
+    pk1, loc1 = find_peaks(PPG1)
+
+    # --- Tempi sistolici e diastolici ---
+    sys_time = np.mean([(loc[i] - loc1[i]) / fs for i in range(min(10, len(loc), len(loc1)))])
+    dias_time = np.mean([(loc1[i + 1] - loc[i]) / fs for i in range(min(10, len(loc) - 1, len(loc1) - 1))])
+
+    # --- Tempi di salita/discesa per livelli v ---
+    ppg_21_st = []
+    ppg_21_dt = []
+    for j in range(6):
+        # tempo di salita
+        a_idx = next((i for i in range(loc1[0], loc[0] + 1) if ppg[i] >= v[j] * pk[0] + pk1[0]), loc1[0])
+        # tempo di discesa
+        b_idx = next((i for i in range(loc[0], loc1[1] + 1) if ppg[i] <= v[j] * pk[0] + pk1[0]), loc[0])
+        ppg_21_st.append((loc[0] - a_idx) / fs)
+        ppg_21_dt.append((b_idx - loc[0]) / fs)
+
+    # --- Feature principali ---
+    ih = np.mean([ppg[i] for i in loc]) if len(loc) > 0 else 0
+    il = np.mean([ppg[i] for i in loc1]) if len(loc1) > 0 else 0
+    PIR = ih / il if il != 0 else 0
+
+    bp_peaks, _ = find_peaks(bp)
+    bp_valleys, _ = find_peaks(np.max(bp) - bp)
+    bpmax = np.mean(bp[bp_peaks]) if len(bp_peaks) > 0 else 0
+    bpmin = np.mean(bp[bp_valleys]) if len(bp_valleys) > 0 else 0
+
+    rr_intervals = np.diff(bp_peaks) / fs if len(bp_peaks) > 1 else [1]
+    hrfinal = 60 / np.mean(rr_intervals)
+
+    # --- FFT PPG per meu ---
+    Yy = np.fft.fft(ppg)
+    Yy[0] = 0
+    S = np.real(np.fft.ifft(Yy))
+    pk4, loc4 = find_peaks(S)
+    meu = np.mean([S[i] for i in loc4]) if len(loc4) > 0 else 0
+
+    # --- alpha ---
+    alpha = il * np.sqrt(1060 * hrfinal / meu) if meu != 0 else 0
+
+    # --- PTT non calcolabile senza ECG ---
+    ptt = 0
+
+    # --- Variabili j-s come nel MATLAB ---
+    j = ppg_21_dt[0]
+    k = ppg_21_st[0] + ppg_21_dt[0]
+    l = ppg_21_dt[0] / ppg_21_st[0] if ppg_21_st[0] != 0 else 0
+    m = ppg_21_dt[1]
+    n = ppg_21_st[1] + ppg_21_dt[1]
+    o = ppg_21_dt[1] / ppg_21_st[1] if ppg_21_st[1] != 0 else 0
+    p = ppg_21_dt[2]
+    q = ppg_21_st[2] + ppg_21_dt[2]
+    r = ppg_21_dt[2] / ppg_21_st[2] if ppg_21_st[2] != 0 else 0
+    s = sys_time  # possiamo concatenare dias_time se vuoi come ultima colonna separata
+
+    # --- Tutte le feature ---
+    features = [alpha, PIR, ptt, bpmax, bpmin, hrfinal, ih, il, meu,
+                j, k, l, m, n, o, p, q, r, s, dias_time]
+    return features
+
+
+# ==============================
+# Funzioni di valutazione
+# ==============================
+def evaluate(y_true, y_pred):
+
+    # Metriche classiche
+    mae = metrics.mean_absolute_error(y_true, y_pred)
+    rmse = np.sqrt(metrics.mean_squared_error(y_true, y_pred))
+
+    # AAMI
+    errors = y_pred - y_true
+    sd = np.std(errors)
+    abs_errors = np.abs(errors)
+
+    # AAMI compliance
+    aami_mae = mae < 5
+    aami_sd = sd < 8
+    aami_compliance = aami_mae and aami_sd
+
+    # BHS grading
+    p5 = np.mean(abs_errors < 5) * 100
+    p10 = np.mean(abs_errors < 10) * 100
+    p15 = np.mean(abs_errors < 15) * 100
+
+    if p5 >= 60 and p10 >= 85 and p15 >= 95:
+        grade = "A"
+    elif p5 >= 50 and p10 >= 75 and p15 >= 90:
+        grade = "B"
+    elif p5 >= 40 and p10 >= 65 and p15 >= 85:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return {
+        "MAE": mae,
+        "RMSE": rmse,
+        "AAMI": aami_compliance,
+        "Perc_<5": p5,
+        "Perc_<10": p10,
+        "Perc_<15": p15,
+        "BHS": grade
+    }
+
+
+# Funzione principale
+def train_rf_evaluate(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=0
+    )
+    sc_X = StandardScaler()
+    X_train = sc_X.fit_transform(X_train)
+    X_test = sc_X.transform(X_test)
+
+    model = RandomForestRegressor(n_estimators=500, random_state=2)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    metrics = evaluate(np.array(y_test), y_pred)
+    return metrics, model
+
+# -------------------------
+# Estrazione feature dal dataset
+# -------------------------
+def execute(data_path):
+    with h5py.File(data_path, "r") as f:
+
+        subject_to_groups = defaultdict(list)
+        for group_id in f:
+            subject_id = f[group_id].attrs["subject_id"]
+            subject_to_groups[subject_id].append(group_id)
+
+        subjects = list(subject_to_groups.keys())
+
+        def get_group_ids(subject_list):
+            return [gid for subj in subject_list for gid in subject_to_groups[subj]]
+
+        ids = get_group_ids(subjects)
+
+        def load_data(group_ids):
+            X, Y = [], []
+            for gid in group_ids:
+                ippg_cwt = f[gid]["ippg"][:]
+                bp_cwt = f[gid]["bp"][:]
+                X.append(ippg_cwt)
+                Y.append(bp_cwt)
+
+            return np.array(X), np.array(Y)
+
+        x, y = load_data(ids)
+
+    dataset = pd.DataFrame({"ippg": x, "bp": y})
+    features_list = []
+    for i in range(len(dataset)):
+        ppg_signal = np.array(dataset.loc[i, 'ippg'])
+        bp_signal = np.array(dataset.loc[i, 'bp'])
+
+        feat = extract_features(ppg_signal, bp_signal)
+        features_list.append(feat)
+
+    # -------------------------
+    # Creazione DataFrame
+    # -------------------------
+    columns = ['alpha', 'PIR', 'ptt', 'bpmax', 'bpmin', 'hrfinal', 'ih', 'il', 'meu',
+               'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 'dias_time']
+
+    # Target
+    sbp = dataset['bpmax'].tolist()
+    dbp = dataset['bpmin'].tolist()
+    map_bp = [(2 * dbp[i] + sbp[i]) / 3 for i in range(len(sbp))]
+
+    targets = {
+        "SBP": sbp,
+        "DBP": dbp,
+        "MAP": map_bp
+    }
+
+    features_df = pd.DataFrame(features_list, columns=columns)
+
+    # Pulizia dati
+    features_df.replace([np.inf, -np.inf], 0, inplace=True)
+    features_df.fillna(0, inplace=True)
+
+    # -------------------------
+    # X e y (MAP, SBP, DBP)
+    # -------------------------
+    X = features_df[['alpha', 'PIR', 'ptt', 'hrfinal', 'ih', 'il', 'meu',
+                     'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's']]
+
+    # ==============================
+    # Training + valutazione
+    # ==============================
+    results = []
+    models = {}
+
+    for label, y in targets.items():
+        metrics, model = train_rf_evaluate(X, y)
+        results.append({"Target": label, **metrics})
+        models[label] = model  # salvo i modelli se servono dopo
+
+    results_df = pd.DataFrame(results)
+    results_df.to_csv("rf_results.csv", index=False)
+    print(results_df)

@@ -28,6 +28,7 @@ def train_models(config, extract_data=False,):
     freeze_backbone = config.get_boolean('UnetParameter', 'freeze_backbone')
     checkpoint_path = config.uNetdict['checkpoint_path']
     model_path = config.uNetdict['model_path']
+    learning_rate = np.float32(config.uNetdict['learningRate'])
 
     if extract_data is True:
         print(f"start new training")
@@ -63,7 +64,7 @@ def train_models(config, extract_data=False,):
 
     # loss and optimisation function definition
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # Save model architecture
     model_structure = {
@@ -86,7 +87,6 @@ def train_models(config, extract_data=False,):
 
     # model summary
     summary(model, input_size=x_train_torch[0].shape)
-
     # training
     print("start training...\n")
     history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path,
@@ -103,4 +103,4 @@ if __name__ == "__main__":
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-    train_models(config, extract_data=False)
+    train_models(config, extract_data=True)

@@ -84,9 +84,9 @@ class DecoderNetwork(nn.Module):
         :return: (torch.Tensor) decoder network final output
         """
 
-        x = self.decoder1(x, encoder_outputs[3])
-        x = self.decoder2(x, encoder_outputs[2])
-        x = self.decoder3(x, encoder_outputs[1])
+        x = self.decoder1(x, encoder_outputs[4])
+        x = self.decoder2(x, encoder_outputs[3])
+        x = self.decoder3(x, encoder_outputs[2])
         x = self.decoder4(x, encoder_outputs[0])
         x = self.decoder5(x)
 
