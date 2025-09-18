@@ -8,7 +8,11 @@ from collections import defaultdict
 import h5py
 
 
-#  Funzioni di feature extraction e segmentazione
+# -----------------------------------
+# SUPPORT VECTOR REGRESSOR METHOD
+# -----------------------------------
+
+
 def extract_features(ppg_segment, bp_segment):
     features = {}
     features['ppg_max'] = np.max(ppg_segment)
@@ -58,7 +62,7 @@ def create_feature_dataset(dataset):
     return X, y_sp, y_dp
 
 
-# Funzioni per metriche extra
+
 def evaluate_metrics(y_true, y_pred):
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
@@ -111,14 +115,13 @@ def train_svr_cv(X, y, C=1.1, kernel='rbf', gamma=0.1, epsilon=0.05, n_splits=5,
         metrics = evaluate_metrics(y_test, y_pred)
         all_metrics.append(metrics)
 
-    # Media delle metriche
     avg_metrics = {k: np.mean([m[k] if isinstance(m[k], (int, float)) else None
                                for m in all_metrics if isinstance(m[k], (int, float))])
                    for k in all_metrics[0] if isinstance(all_metrics[0][k], (int, float))}
 
     return avg_metrics, model
 
-# Funzione per creare un DataFrame finale con SP e DP
+
 def create_results_table(metrics_sp, metrics_dp):
     results = pd.DataFrame([
         {"Target": "SP", **metrics_sp},
@@ -159,3 +162,8 @@ def execute(data_path):
     results = create_results_table(metrics_sp, metrics_dp)
     results.to_csv("svr_results.csv", index=False)
     print(results)
+
+
+if __name__ == "__main__":
+    data_path ="../ dataset / data_GREEN2.h5"
+    execute(data_path)

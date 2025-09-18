@@ -14,9 +14,9 @@ from my_pyVHR.extraction.utils import get_fps
 import pandas as pd
 
 
-# -----------------------
-# rPPG extraction
-# -----------------------
+# -------------------------------
+# PCA + LINEAR REGRESSOR MODEL
+# -------------------------------
 
 
 def get_winsize(videoFileName):
@@ -33,11 +33,6 @@ def get_winsize(videoFileName):
 
 def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
     """the method extract and pre-processing a rgb signal from a video or path"""
-
-    winsize= np.float32(conf.sigdict['winsize'])
-    stride = np.float32(conf.sigdict['stride'])
-    if get_winsize(videoFileName)<winsize:
-        winsize=get_winsize(videoFileName)
 
     roi_method=conf.sigdict['method']
     roi_approach=conf.sigdict['approach']
@@ -79,13 +74,12 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
 
 
 def extract_rppg(signal, n_components=10):
-    """Estrae rPPG usando residuo PCA sul canale rosso"""
     red = signal[:, 0, :]
     pca = PCA(n_components=n_components)
     transformed = pca.fit_transform(red)
     recon = pca.inverse_transform(transformed)
     rppg = (recon - red).mean(axis=1)
-    # Normalizzazione zero-mean e unit-variance
+
     rppg = (rppg - np.mean(rppg)) / (np.std(rppg) + 1e-8)
     return rppg
 
@@ -111,7 +105,7 @@ def select_best_segment(rppg, fs=30, discard_sec=5, segment_sec=10):
 
 
 # -----------------------
-# Feature extraction + SBP/DBP dai picchi
+# Feature extraction + SBP/DBP
 # -----------------------
 def extract_features(rppg, bp_segment, fs=30):
     peaks, _ = sps.find_peaks(rppg, distance=fs * 0.5)
@@ -135,7 +129,7 @@ def extract_features(rppg, bp_segment, fs=30):
                              for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
         area = np.mean([np.sum(rppg[peaks[i]:peaks[i + 1]]) for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
 
-    # --- SBP/DBP dal segnale BP ---
+    # --- SBP/DBP of BP ---
     if len(bp_segment) < 2:
         SBP = np.max(bp_segment) if len(bp_segment) > 0 else 0
         DBP = np.min(bp_segment) if len(bp_segment) > 0 else 0
@@ -152,7 +146,7 @@ def extract_features(rppg, bp_segment, fs=30):
 
 
 # -----------------------
-# Metriche BP
+# Metrics
 # -----------------------
 def evaluate_bp(y_true, y_pred):
     mae = np.mean(np.abs(y_true - y_pred))
@@ -190,77 +184,82 @@ def evaluate_metrics(y_true, y_pred):
     }
 
 # -----------------------
-# Pipeline principale
+# Main Pipeline
 # -----------------------
-conf = Configuration('C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-X_feats, y_sbp, y_dbp = [], [], []
+def execute(conf):
+    X_feats, y_sbp, y_dbp = [], [], []
 
-datasetName = conf.datasetdict['dataset']
-path = conf.datasetdict['path']
-videodataDIR = conf.datasetdict['videodataDIR']
-BVPdataDIR = conf.datasetdict['BVPdataDIR']
+    datasetName = conf.datasetdict['dataset']
+    path = conf.datasetdict['path']
+    videodataDIR = conf.datasetdict['videodataDIR']
+    BVPdataDIR = conf.datasetdict['BVPdataDIR']
 
-dataset = datasetFactory(datasetName, videodataDIR, BVPdataDIR, path)
-dataset_len = dataset.len_dataset()
-print('dataset len: ', dataset_len)
+    dataset = datasetFactory(datasetName, videodataDIR, BVPdataDIR, path)
+    dataset_len = dataset.len_dataset()
+    print('dataset len: ', dataset_len)
 
-for idx in range(dataset_len):
-    videoFileName = dataset.getVideoFilename(idx)
-    print('Processing video:', videoFileName)
+    for idx in range(dataset_len):
+        videoFileName = dataset.getVideoFilename(idx)
+        print('Processing video:', videoFileName)
 
-    # --- Estrazione segnale RGB dal video ---
-    sig = extract_Sig(videoFileName, conf, verb=False)
+        # --- Extract signal RGB from video ---
+        sig = extract_Sig(videoFileName, conf, verb=False)
 
-    fs = get_fps(videoFileName)
-    if fs is None or fs <= 0:
-        fs = 30
+        fs = get_fps(videoFileName)
+        if fs is None or fs <= 0:
+            fs = 30
 
-    # --- Elaborazione rPPG ---
-    rppg = extract_rppg(sig[0])
-    rppg, start_idx = select_best_segment(rppg, fs)
-    rppg = bandpass_filter(rppg, fs)
+        # --- rPPG Elaboration ---
+        rppg = extract_rppg(sig[0])
+        rppg, start_idx = select_best_segment(rppg, fs)
+        rppg = bandpass_filter(rppg, fs)
 
-    # --- Segnale BP corrispondente ---
-    fname = dataset.getSigFilename(idx)
-    sigGT = dataset.readSigfile(fname)
-    bpGT = sigGT.getSig()  # segnale continuo BP
-    end_idx = start_idx + 10 * fs  # 10s segmento
-    bp_segment = bpGT[start_idx:end_idx] # segmento corrispondente ai 10s selezionati
+        # --- Signal BP ---
+        fname = dataset.getSigFilename(idx)
+        sigGT = dataset.readSigfile(fname)
+        bpGT = sigGT.getSig()  # segnale continuo BP
+        end_idx = start_idx + 10 * fs  # 10s segmento
+        bp_segment = bpGT[start_idx:end_idx]  # segmento corrispondente ai 10s selezionati
 
-    # --- Feature extraction + SBP/DBP dai picchi ---
-    feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
+        # --- Feature extraction + SBP/DBP  ---
+        feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
 
-    X_feats.append(feats)
-    y_sbp.append(SBP)
-    y_dbp.append(DBP)
+        X_feats.append(feats)
+        y_sbp.append(SBP)
+        y_dbp.append(DBP)
 
-# -----------------------
-# Regressione e cross-validation
-# -----------------------
-X_feats = np.array(X_feats)
-poly = PolynomialFeatures(2)
-X_poly = poly.fit_transform(X_feats)
+    # -----------------------
+    # Regression e cross-validation
+    # -----------------------
+    X_feats = np.array(X_feats)
+    poly = PolynomialFeatures(2)
+    X_poly = poly.fit_transform(X_feats)
 
-cv_folds = min(9, len(X_feats))
+    cv_folds = min(9, len(X_feats))
 
-# --- SBP ---
-lr_sbp = LinearRegression()
-cv_folds = min(9, len(X_feats))  # numero di fold sicuro
-# predizioni out-of-fold per avere metriche realistiche
-y_pred_sbp = cross_val_predict(lr_sbp, X_poly, y_sbp, cv=cv_folds)
-metrics_sp = evaluate_metrics(y_sbp, y_pred_sbp)
+    # --- SBP ---
+    lr_sbp = LinearRegression()
+    y_pred_sbp = cross_val_predict(lr_sbp, X_poly, y_sbp, cv=cv_folds)
+    metrics_sp = evaluate_metrics(y_sbp, y_pred_sbp)
 
-# --- DBP ---
-lr_dbp = LinearRegression()
-y_pred_dbp = cross_val_predict(lr_dbp, X_poly, y_dbp, cv=cv_folds)
-metrics_dp = evaluate_metrics(y_dbp, y_pred_dbp)
-# -----------------------
-# Creazione DataFrame finale
-# -----------------------
-results = pd.DataFrame([
-    {'Target':'SP', **metrics_sp},
-    {'Target':'DP', **metrics_dp}
-])
-results.to_csv('pcalr_results.csv', index=False)
-print(results)
+    # --- DBP ---
+    lr_dbp = LinearRegression()
+    y_pred_dbp = cross_val_predict(lr_dbp, X_poly, y_dbp, cv=cv_folds)
+    metrics_dp = evaluate_metrics(y_dbp, y_pred_dbp)
+
+    results = pd.DataFrame([
+        {'Target': 'SP', **metrics_sp},
+        {'Target': 'DP', **metrics_dp}
+    ])
+    results.to_csv('pcalr_results.csv', index=False)
+    print(results)
+
+
+
+if __name__ == "__main__":
+    data_path ="../ dataset / data_GREEN2.h5"
+    config = Configuration(
+        'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+
+    execute(config)
