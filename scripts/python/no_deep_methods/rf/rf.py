@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
 from collections import defaultdict
 import h5py
+from scipy.signal import butter, filtfilt
 
 
 # ---------------------------------
@@ -16,29 +17,47 @@ import h5py
 # ---------------
 # Parameters
 # --------------
-fs = 125  # frequency rate
+fs = 100  # frequency rate
 window_size_sec = 8  # slide windowed
 window_samples = fs * window_size_sec
 v = [0.1, 0.25, 0.33, 0.5, 0.66, 0.75]  # PPG % levels
+
+def bandpass_filter(signal, fs=30):
+    cutoff = 5  # Hz
+    b, a = butter(2, cutoff / (fs / 2), btype='low')
+    ppg_filtered = filtfilt(b, a, signal)
+    return ppg_filtered
 
 
 # -------------------------
 # Features extraction Function
 # -------------------------
 def extract_features(ppg, bp):
-    # --- PPG second derivate ---
+
+    # --- Assicurati che i segnali siano numpy array ---
+    ppg = np.array(ppg)
+    bp = np.array(bp)
+
+    # --- PPG second derivative ---
     ppg_2nd = np.gradient(np.gradient(ppg))
 
-    # ---  PPG picks ---
-    pk, loc = find_peaks(ppg)
+    # --- PPG peaks ---
+    loc, property = find_peaks(ppg, prominence=0.0001)
+    pk = ppg[loc]
     PPG1 = np.max(ppg) - ppg
-    pk1, loc1 = find_peaks(PPG1)
+    loc1, property = find_peaks(PPG1, prominence=0.0001)
+    pk1 = PPG1[loc1]
 
-    # --- systolic and diastolic time---
+
+    # --- Controllo minimo picchi ---
+    if len(loc) == 0 or len(loc1) < 2:
+        return [0]*19  # restituisce feature di default
+
+    # --- Systolic e diastolic time ---
     sys_time = np.mean([(loc[i] - loc1[i]) / fs for i in range(min(10, len(loc), len(loc1)))])
     dias_time = np.mean([(loc1[i + 1] - loc[i]) / fs for i in range(min(10, len(loc) - 1, len(loc1) - 1))])
 
-    # --- up/down time for v levels ---
+    # --- Up/down time per livelli ---
     ppg_21_st = []
     ppg_21_dt = []
     for j in range(6):
@@ -47,11 +66,12 @@ def extract_features(ppg, bp):
         ppg_21_st.append((loc[0] - a_idx) / fs)
         ppg_21_dt.append((b_idx - loc[0]) / fs)
 
-    # --- Main Feature ---
+    # --- Main features ---
     ih = np.mean([ppg[i] for i in loc]) if len(loc) > 0 else 0
     il = np.mean([ppg[i] for i in loc1]) if len(loc1) > 0 else 0
     PIR = ih / il if il != 0 else 0
 
+    # --- BP peaks/valleys ---
     bp_peaks, _ = find_peaks(bp)
     bp_valleys, _ = find_peaks(np.max(bp) - bp)
     bpmax = np.mean(bp[bp_peaks]) if len(bp_peaks) > 0 else 0
@@ -70,7 +90,6 @@ def extract_features(ppg, bp):
     # --- alpha ---
     alpha = il * np.sqrt(1060 * hrfinal / meu) if meu != 0 else 0
 
-
     # --- j-s variables ---
     j = ppg_21_dt[0]
     k = ppg_21_st[0] + ppg_21_dt[0]
@@ -81,12 +100,11 @@ def extract_features(ppg, bp):
     p = ppg_21_dt[2]
     q = ppg_21_st[2] + ppg_21_dt[2]
     r = ppg_21_dt[2] / ppg_21_st[2] if ppg_21_st[2] != 0 else 0
-    s = sys_time  # possiamo concatenare dias_time se vuoi come ultima colonna separata
+    s = sys_time
 
     features = [alpha, PIR, bpmax, bpmin, hrfinal, ih, il, meu,
                 j, k, l, m, n, o, p, q, r, s, dias_time]
     return features
-
 
 # ==============================
 # Evaluation metrics
@@ -124,10 +142,10 @@ def evaluate(y_true, y_pred):
         "MAE": mae,
         "RMSE": rmse,
         "AAMI": aami_compliance,
+        "BHS": grade,
         "Perc_<5": p5,
         "Perc_<10": p10,
-        "Perc_<15": p15,
-        "BHS": grade
+        "Perc_<15": p15
     }
 
 
@@ -177,11 +195,11 @@ def execute(data_path):
 
         x, y = load_data(ids)
 
-    dataset = pd.DataFrame({"ippg": x, "bp": y})
     features_list = []
-    for i in range(len(dataset)):
-        ppg_signal = np.array(dataset.loc[i, 'ippg'])
-        bp_signal = np.array(dataset.loc[i, 'bp'])
+    end = min(len(x), len(y))
+    for i in range(0,end):
+        ppg_signal = x[i]
+        bp_signal = y[i]
 
         feat = extract_features(ppg_signal, bp_signal)
         features_list.append(feat)
@@ -189,22 +207,24 @@ def execute(data_path):
     columns = ['alpha', 'PIR', 'bpmax', 'bpmin', 'hrfinal', 'ih', 'il', 'meu',
                'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 'dias_time']
 
-    # Target
-    sbp = dataset['bpmax'].tolist()
-    dbp = dataset['bpmin'].tolist()
-    map_bp = [(2 * dbp[i] + sbp[i]) / 3 for i in range(len(sbp))]
 
-    targets = {
-        "SBP": sbp,
-        "DBP": dbp,
-        "MAP": map_bp
-    }
 
     features_df = pd.DataFrame(features_list, columns=columns)
 
     # data cleaning
     features_df.replace([np.inf, -np.inf], 0, inplace=True)
     features_df.fillna(0, inplace=True)
+
+    # Target
+    sbp = features_df['bpmax'].values
+    dbp = features_df['bpmin'].values
+    map_bp = (2*dbp + sbp)/3
+
+    targets = {
+        "SBP": sbp,
+        "DBP": dbp,
+        "MAP": map_bp
+    }
 
     X = features_df[['alpha', 'PIR', 'hrfinal', 'ih', 'il', 'meu',
                      'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's']]
@@ -226,5 +246,5 @@ def execute(data_path):
 
 
 if __name__ == "__main__":
-    data_path ="../ dataset / data_GREEN2.h5"
+    data_path = "C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_GREEN2.h5"
     execute(data_path)

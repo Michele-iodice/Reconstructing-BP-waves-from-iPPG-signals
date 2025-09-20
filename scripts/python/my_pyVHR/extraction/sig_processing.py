@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import face_alignment
 import torch
+from tqdm import tqdm
 
 """
 This module defines classes or methods used for Signal extraction and processing.
@@ -88,10 +89,17 @@ class SignalProcessing:
         max_frames_limit = 10000
         selected_indices = list(range(17, 27)) + [1, 2, 3, 14, 15, 16]
 
-        for frame in extract_frames_yield(videoFileName, frame_interval=frame_interval):
-            percent=(processed_frames_count*100) // self.tot_frames
-            if processed_frames_count == 0 or percent != ((processed_frames_count - 1) * 100) // self.tot_frames:
-                print(f"{percent}%...")
+        if self.tot_frames==0:
+            cap = cv2.VideoCapture(videoFileName)
+            if not cap.isOpened():
+                raise Exception("Impossibile aprire il video")
+
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            self.set_total_frames(total_frames)
+            cap.release()
+
+        for frame in tqdm(extract_frames_yield(videoFileName, frame_interval=frame_interval), total=self.tot_frames // frame_interval + 1, desc="Video loading", leave=True):
+
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             width = int(image.shape[1] * scale_percent / 100)
             height = int(image.shape[0] * scale_percent / 100)

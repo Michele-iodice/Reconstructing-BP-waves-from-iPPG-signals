@@ -47,9 +47,8 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
     SkinProcessingParams.RGB_LOW_TH = np.int32(conf.sigdict['Skin_LOW_TH'])
     SkinProcessingParams.RGB_HIGH_TH = np.int32(conf.sigdict['Skin_HIGH_TH'])
 
-
     fps = get_fps(videoFileName)
-    sig_processing.set_total_frames(30*fps) # set to 0 to process the whole video
+    sig_processing.set_total_frames(30 * fps)  # set to 0 to process the whole video
     # 3. ROI selection
     if verb:
         print('\nProcessing Video ' + videoFileName)
@@ -57,7 +56,7 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
 
     sig = []
     # SIG extraction with holistic approach
-    sig_extract = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=2)
+    sig_extract = sig_processing.extract_holistic(videoFileName, scale_percent=30, frame_interval=1)
     sig_extract = np.transpose(sig_extract, (1, 2, 0))
     sig.append(sig_extract)
     if len(sig) <= 0:
@@ -74,24 +73,37 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
 
 
 def extract_rppg(signal, n_components=10):
-    red = signal[:, 0, :]
-    pca = PCA(n_components=n_components)
-    transformed = pca.fit_transform(red)
+    red = np.nan_to_num(signal[0])
+    red_frames = red.T
+
+    n_comp = min(n_components, red_frames.shape[1], red.shape[1])
+    if n_comp < 1:
+        raise ValueError("Segnale troppo corto o vuoto per PCA")
+    pca = PCA(n_components=n_comp)
+    transformed = pca.fit_transform(red_frames)
     recon = pca.inverse_transform(transformed)
-    rppg = (recon - red).mean(axis=1)
+    rppg = (recon - red_frames).mean(axis=1)
 
     rppg = (rppg - np.mean(rppg)) / (np.std(rppg) + 1e-8)
+
     return rppg
 
 
-def bandpass_filter(signal, fs=30):
-    b, a = sps.butter(3, [0.5 / (fs / 2), 5 / (fs / 2)], btype='band')
-    return sps.filtfilt(b, a, signal)
+def bandpass_filter(signal, fs=30, lowcut=0.5, highcut=5.0):
+    if len(signal) < 21:  # padlen di filtfilt ~ 3*(max(len(a), len(b))) ~ 21
+        print("Segnale troppo corto per bandpass, restituisco il segnale originale")
+        return signal
+
+    b, a = sps.butter(3, [lowcut / (fs / 2), highcut / (fs / 2)], btype='band')
+    filtered = sps.filtfilt(b, a, signal)
+    return filtered
 
 
 def select_best_segment(rppg, fs=30, discard_sec=5, segment_sec=10):
-    rppg_clean = rppg[discard_sec*fs : -discard_sec*fs] if len(rppg) > 2*discard_sec*fs else rppg
-    window_len = min(segment_sec * fs, len(rppg_clean))
+    discard_fr= int(discard_sec*fs)
+    segment_fr = int(segment_sec*fs)
+    rppg_clean = rppg[discard_fr : -discard_fr] if len(rppg) > 2*discard_fr else rppg
+    window_len = min(segment_fr, len(rppg_clean))
     max_var = 0
     best_segment = rppg_clean[:window_len]
     best_start = 0
@@ -101,7 +113,8 @@ def select_best_segment(rppg, fs=30, discard_sec=5, segment_sec=10):
             max_var = np.var(seg)
             best_segment = seg
             best_start = i
-    return best_segment, best_start + discard_sec*fs
+
+    return best_segment, best_start + discard_fr
 
 
 # -----------------------
@@ -187,8 +200,8 @@ def evaluate_metrics(y_true, y_pred):
 # Main Pipeline
 # -----------------------
 
-def execute(conf):
-    X_feats, y_sbp, y_dbp = [], [], []
+def execute(conf, data_path):
+    X_feats, y_sbp, y_dbp, rows = [], [], [], []
 
     datasetName = conf.datasetdict['dataset']
     path = conf.datasetdict['path']
@@ -208,26 +221,43 @@ def execute(conf):
 
         fs = get_fps(videoFileName)
         if fs is None or fs <= 0:
-            fs = 30
+            fs = 25
 
         # --- rPPG Elaboration ---
         rppg = extract_rppg(sig[0])
-        rppg, start_idx = select_best_segment(rppg, fs)
-        rppg = bandpass_filter(rppg, fs)
+        rppg = bandpass_filter(rppg,fs)
+        rppg, start_idx = select_best_segment(rppg, fs, discard_sec=2,segment_sec=10)
+
 
         # --- Signal BP ---
         fname = dataset.getSigFilename(idx)
         sigGT = dataset.readSigfile(fname)
-        bpGT = sigGT.getSig()  # segnale continuo BP
-        end_idx = start_idx + 10 * fs  # 10s segmento
-        bp_segment = bpGT[start_idx:end_idx]  # segmento corrispondente ai 10s selezionati
+        bpGT = sigGT.getSig()
+        bp_sig= bpGT[0]
+        start_idx = int(round(start_idx))
+        end_idx = min(int(round(start_idx + 10 * fs)), len(bp_sig))
+        bp_segment = bp_sig[start_idx:end_idx] # sincronized with ippg
 
         # --- Feature extraction + SBP/DBP  ---
         feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
-
         X_feats.append(feats)
         y_sbp.append(SBP)
         y_dbp.append(DBP)
+
+        # --- Salvataggio dati intermedi ---
+        rows.append({
+            'video': videoFileName,
+            'sig': sig.tolist(),  # convertiamo numpy array in lista
+            'rppg': rppg.tolist(),
+            'bp_segment': bp_segment.tolist(),
+            'SBP': SBP,
+            'DBP': DBP
+        })
+
+        # Salva dati intermedi in CSV
+    df_intermediate = pd.DataFrame(rows)
+    df_intermediate.to_csv(data_path, index=False)
+    print(f"Dati intermedi salvati in: {data_path}")
 
     # -----------------------
     # Regression e cross-validation
@@ -258,8 +288,8 @@ def execute(conf):
 
 
 if __name__ == "__main__":
-    data_path ="../ dataset / data_GREEN2.h5"
+    data_path = "pca_lr_dataset.csv"
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
-    execute(config)
+    execute(config,data_path)

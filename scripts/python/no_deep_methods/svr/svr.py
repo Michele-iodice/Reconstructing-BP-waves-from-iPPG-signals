@@ -6,12 +6,18 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from scipy.signal import find_peaks
 from collections import defaultdict
 import h5py
-
+from statistics import mode
+from scipy.signal import butter, filtfilt
 
 # -----------------------------------
 # SUPPORT VECTOR REGRESSOR METHOD
 # -----------------------------------
 
+def bandpass_filter(signal, fs=30):
+    cutoff = 5  # Hz
+    b, a = butter(2, cutoff / (fs / 2), btype='low')
+    ppg_filtered = filtfilt(b, a, signal)
+    return ppg_filtered
 
 def extract_features(ppg_segment, bp_segment):
     features = {}
@@ -46,11 +52,12 @@ def segment_beats(ppg, bp):
     return segments
 
 
-def create_feature_dataset(dataset):
+def create_feature_dataset(ppgs,bps):
     all_features = []
-    for idx, row in dataset.iterrows():
-        ppg = row['ppg']
-        bp = row['bp']
+    end=min(len(ppgs),len(bps))
+    for idx in range(0,end):
+        ppg = ppgs[idx]
+        bp = bps[idx]
         segments = segment_beats(ppg, bp)
         for seg_ppg, seg_bp in segments:
             feat = extract_features(seg_ppg, seg_bp)
@@ -90,7 +97,7 @@ def evaluate_metrics(y_true, y_pred):
     return {
         "MAE": mae,
         "RMSE": rmse,
-        "AAMI": aami_compliance,
+        "AAMI": "Pass" if aami_compliance else "Fail",
         "AAMI_details": {"MAE<5": aami_mae, "SD<8": aami_sd},
         "BHS": grade,
         "Perc_<5": p5,
@@ -115,9 +122,16 @@ def train_svr_cv(X, y, C=1.1, kernel='rbf', gamma=0.1, epsilon=0.05, n_splits=5,
         metrics = evaluate_metrics(y_test, y_pred)
         all_metrics.append(metrics)
 
-    avg_metrics = {k: np.mean([m[k] if isinstance(m[k], (int, float)) else None
-                               for m in all_metrics if isinstance(m[k], (int, float))])
-                   for k in all_metrics[0] if isinstance(all_metrics[0][k], (int, float))}
+    avg_metrics = {}
+    for key in all_metrics[0].keys():
+        values = [m[key] for m in all_metrics if m[key] is not None]
+
+        if isinstance(values[0], (int, float, np.float64, np.float32)):
+            avg_metrics[key] = float(np.mean(values))
+        elif isinstance(values[0], str):
+            avg_metrics[key] = mode(values)  # maggioranza
+        else:
+            continue
 
     return avg_metrics, model
 
@@ -155,8 +169,7 @@ def execute(data_path):
 
         x, y = load_data(ids)
 
-    dataset = pd.DataFrame({"ippg": x, "bp": y})
-    X, y_sp, y_dp = create_feature_dataset(dataset)
+    X, y_sp, y_dp = create_feature_dataset(x,y)
     metrics_sp, svr_sp = train_svr_cv(X, y_sp)
     metrics_dp, svr_dp = train_svr_cv(X, y_dp)
     results = create_results_table(metrics_sp, metrics_dp)
@@ -165,5 +178,5 @@ def execute(data_path):
 
 
 if __name__ == "__main__":
-    data_path ="../ dataset / data_GREEN2.h5"
+    data_path ="C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_GREEN2.h5"
     execute(data_path)
