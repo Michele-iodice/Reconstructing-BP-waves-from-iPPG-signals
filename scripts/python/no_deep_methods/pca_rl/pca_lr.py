@@ -12,7 +12,7 @@ from my_pyVHR.extraction.skin_extraction_methods import SkinExtractionFaceParsin
 from my_pyVHR.extraction.sig_processing import SignalProcessing
 from my_pyVHR.extraction.utils import get_fps
 import pandas as pd
-
+import ast
 
 # -------------------------------
 # PCA + LINEAR REGRESSOR MODEL
@@ -202,7 +202,7 @@ def evaluate_metrics(y_true, y_pred):
 
 def execute(conf, data_path):
     X_feats, y_sbp, y_dbp, rows = [], [], [], []
-
+    '''
     datasetName = conf.datasetdict['dataset']
     path = conf.datasetdict['path']
     videodataDIR = conf.datasetdict['videodataDIR']
@@ -237,27 +237,39 @@ def execute(conf, data_path):
         start_idx = int(round(start_idx))
         end_idx = min(int(round(start_idx + 10 * fs)), len(bp_sig))
         bp_segment = bp_sig[start_idx:end_idx] # sincronized with ippg
+        '''
 
-        # --- Feature extraction + SBP/DBP  ---
-        feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
-        X_feats.append(feats)
-        y_sbp.append(SBP)
-        y_dbp.append(DBP)
+    # --- Feature extraction + SBP/DBP  ---
+    df = pd.read_csv("pca_lr_dataset.csv")
+    df['rppg'] = df['rppg'].apply(ast.literal_eval)
+    df['bp_segment'] = df['bp_segment'].apply(ast.literal_eval)
+    rppg = df['rppg'].tolist()
+    bp_segment = df['bp_segment'].tolist()
+    rppg = [np.array(sig) for sig in rppg]
+    bp_segment = [np.array(bp) for bp in bp_segment]
 
-        # --- Salvataggio dati intermedi ---
-        rows.append({
-            'video': videoFileName,
-            'sig': sig.tolist(),  # convertiamo numpy array in lista
-            'rppg': rppg.tolist(),
-            'bp_segment': bp_segment.tolist(),
-            'SBP': SBP,
-            'DBP': DBP
-        })
+    fs = 25
+    feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
+    X_feats.append(feats)
+    y_sbp.append(SBP)
+    y_dbp.append(DBP)
+
+    '''
+    # --- Salvataggio dati intermedi ---
+    rows.append({
+        'video': videoFileName,
+        'sig': sig.tolist(),  # convertiamo numpy array in lista
+        'rppg': rppg.tolist(),
+        'bp_segment': bp_segment.tolist(),
+        'SBP': SBP,
+        'DBP': DBP
+    })
 
         # Salva dati intermedi in CSV
     df_intermediate = pd.DataFrame(rows)
     df_intermediate.to_csv(data_path, index=False)
     print(f"Dati intermedi salvati in: {data_path}")
+    '''
 
     # -----------------------
     # Regression e cross-validation
