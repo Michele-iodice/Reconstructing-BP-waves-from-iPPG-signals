@@ -31,3 +31,4 @@ scripts/python/dataset/data_LGI.h5
 scripts/python/train/result/history.csv
 scripts/python/train/result/test_results.csv
 scripts/python/train/result/weights.pth
+scripts/python/dataset/data_POS2.h5
