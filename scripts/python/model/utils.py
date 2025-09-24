@@ -211,6 +211,12 @@ def test_model(model, criterion, test_loader):
     tqdm.write(f'\nTest Loss: {test_loss:.4f}, Test MAE: {test_mae:.4f} NaN batches: {nan_count}, NaN metrics: {nan_metrics}')
     save_test(results_bhs,'result/bhs_standards.csv')
     save_test_aami(results_aami,'result/aami_standards.csv')
+    df_test = pd.DataFrame({
+        'SBP_true': all_sbp_true, 'SBP_pred_POS': all_sbp_pred,
+        'DBP_true': all_dbp_true, 'DBP_pred_POS': all_dbp_pred,
+        'MAP_true': all_map_true, 'MAP_pred_POS': all_map_pred
+    })
+    df_test.to_csv('result/test_data_pos.csv', index=False)
 
 
 
