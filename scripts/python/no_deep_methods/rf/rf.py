@@ -116,12 +116,13 @@ def evaluate(y_true, y_pred):
 
     # AAMI
     errors = y_pred - y_true
-    sd = np.std(errors)
+    me = np.mean(errors)
+    sde = np.std(errors, ddof=1)
     abs_errors = np.abs(errors)
 
     # AAMI compliance
-    aami_mae = mae < 5
-    aami_sd = sd < 8
+    aami_mae = abs(me) < 5
+    aami_sd = sde < 8
     aami_compliance = aami_mae and aami_sd
 
     # BHS grading
@@ -141,7 +142,9 @@ def evaluate(y_true, y_pred):
     return {
         "MAE": mae,
         "RMSE": rmse,
-        "AAMI": aami_compliance,
+        "AAMI": "Pass" if aami_compliance else "Fail",
+        "ME": me,
+        "SDE": sde,
         "BHS": grade,
         "Perc_<5": p5,
         "Perc_<10": p10,
@@ -246,5 +249,5 @@ def execute(data_path):
 
 
 if __name__ == "__main__":
-    data_path = "C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_GREEN2.h5"
+    data_path = "C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_POS2.h5"
     execute(data_path)

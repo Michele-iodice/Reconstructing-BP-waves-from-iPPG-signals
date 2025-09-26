@@ -169,9 +169,11 @@ def evaluate_bp(y_true, y_pred):
 
 def check_aami(y_true, y_pred):
     mae, rmse = evaluate_bp(y_true, y_pred)
-    errors = np.abs(y_true - y_pred)
-    compliant = mae <= 5 and np.std(errors) <= 8
-    return compliant, mae, rmse
+    errors = y_true - y_pred
+    me = np.mean(errors)
+    sde = np.std(errors, ddof=1)
+    compliant = me <= 5 and sde <= 8
+    return compliant, me, sde, mae, rmse
 
 
 def check_bhs(y_true, y_pred):
@@ -187,12 +189,18 @@ def check_bhs(y_true, y_pred):
     return grade, p5, p10, p15
 
 def evaluate_metrics(y_true, y_pred):
-    aami_compliant, mae,rmse = check_aami(y_true, y_pred)
+    aami_compliant, aami_me, aami_sde, mae, rmse = check_aami(y_true, y_pred)
     grade, p5, p10, p15 = check_bhs(y_true, y_pred)
 
     return {
-        'MAE': mae, 'RMSE': rmse,
-        'AAMI': aami_compliant, 'Perc_<5': p5, 'Perc_<10': p10, 'Perc_<15': p15,
+        'MAE': mae,
+        'RMSE': rmse,
+        'AAMI': "Pass" if aami_compliant else "Fail",
+        'ME': aami_me,
+        'SDE': aami_sde,
+        'Perc_<5': p5,
+        'Perc_<10': p10,
+        'Perc_<15': p15,
         'BHS': grade
     }
 

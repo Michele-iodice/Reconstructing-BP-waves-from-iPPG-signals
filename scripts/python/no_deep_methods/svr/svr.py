@@ -73,17 +73,20 @@ def create_feature_dataset(ppgs,bps):
 def evaluate_metrics(y_true, y_pred):
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    errors = np.abs(y_true - y_pred)
+    errors = y_true - y_pred
+    me = np.mean(errors)
+    sde = np.std(errors, ddof=1)
+    abs_errors = np.abs(y_true - y_pred)
 
     # AAMI
-    aami_mae = mae < 5
-    aami_sd = np.std(errors) < 8
-    aami_compliance = aami_mae and aami_sd
+    aami_mae = me < 5
+    aami_sde = sde < 8
+    aami_compliance = aami_mae and aami_sde
 
     # BHS grading
-    p5 = np.mean(errors < 5) * 100
-    p10 = np.mean(errors < 10) * 100
-    p15 = np.mean(errors < 15) * 100
+    p5 = np.mean(abs_errors < 5) * 100
+    p10 = np.mean(abs_errors < 10) * 100
+    p15 = np.mean(abs_errors < 15) * 100
 
     if p5 >= 60 and p10 >= 85 and p15 >= 95:
         grade = "A"
@@ -98,7 +101,8 @@ def evaluate_metrics(y_true, y_pred):
         "MAE": mae,
         "RMSE": rmse,
         "AAMI": "Pass" if aami_compliance else "Fail",
-        "AAMI_details": {"MAE<5": aami_mae, "SD<8": aami_sd},
+        "ME": me,
+        "SDE": sde,
         "BHS": grade,
         "Perc_<5": p5,
         "Perc_<10": p10,
@@ -178,5 +182,5 @@ def execute(data_path):
 
 
 if __name__ == "__main__":
-    data_path ="C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_GREEN2.h5"
+    data_path ="C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_POS2.h5"
     execute(data_path)
