@@ -55,11 +55,11 @@ def apply_ppg_filter(windowed_sig, filter_func, fps = None, params={}):
 
 def interpolation(sig, **kargs):
     fps = kargs['fps']
-
+    target_fps = kargs['target_fps']
     interp_signals = []
 
     for s in sig:
-        time = np.linspace(0, (len(s) - 1) / fps, int(len(s) * (100 / fps)))
+        time = np.linspace(0, (len(s) - 1) / fps, int(len(s) * (target_fps / fps)))
         x = np.linspace(0, (len(s) - 1) / fps, len(s))
         if len(x) != len(s):
             min_len = min(len(x), len(s))

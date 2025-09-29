@@ -82,13 +82,15 @@ def extract_Sig(videoFileName, conf, verb=True, method='cpu_POS'):
 
     module = import_module('PPG.filters')
     method_to_call = getattr(module, 'interpolation')
-    fps = np.int32(conf.uNetdict['frameRate'])
+    target_fps = np.int32(conf.uNetdict['frameRate'])
     r_ppgs_interp = apply_ppg_filter(r_ppgs_win,
                                      method_to_call,
                                      fps=fps,
-                                     params={'fps': fps})
+                                     params={'fps': fps,  'target_fps':target_fps})
     if verb:
         print(f' - filter applied: {method_to_call.__name__}')
+
+    fps=target_fps
 
     method_to_call = getattr(module, 'detrend')
     r_ppgs_detrend = apply_ppg_filter(r_ppgs_interp,

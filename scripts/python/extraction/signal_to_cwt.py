@@ -11,7 +11,7 @@ def compute_scales(range_freq, num_scales, fps):
         :return: scales
     """
     f_min, f_max = range_freq
-    frequencies = np.linspace(f_min, f_max, num_scales)
+    frequencies = np.linspace(f_max, f_min, num_scales)
     scales = pywt.central_frequency('cmor1.5-1.0') * fps / frequencies
     return scales
 
@@ -148,10 +148,10 @@ def inverse_cwt(CWT, f_min=0.6, f_max=4.5, num_scales=256, C_psi=0.776, fps=100)
     return reconstructed
 
 
-def plotCWT(cwt_sig,fps=100, title="X"):
-    scales = compute_scales([0.6,4.5],256,fps)
-    cwt_complex = cwt_sig[0] + 1j * cwt_sig[1]
-    power = np.abs(cwt_complex) ** 2
+def plotCWT(cwt_sig, range_freq, fps=100, title="X"):
+    scales = compute_scales(range_freq,256,fps)
+    cwt_complex = cwt_sig[0] +1j
+    power = np.float32(cwt_complex)
 
     time = np.arange(cwt_complex.shape[1]) / fps
     freqs = pywt.scale2frequency('cmor1.5-1.0', scales) * fps

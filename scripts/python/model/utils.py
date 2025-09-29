@@ -468,6 +468,16 @@ def plot_train(history):
     plt.legend()
     plt.show()
 
+def plotIPPG(ippg_signal,fs, label):
+    t = np.arange(len(ippg_signal)) / fs
+    plt.figure(figsize=(12, 8))
+    plt.plot(t, ippg_signal, label="iPPG signal")
+    plt.xlabel("Time [sec]")
+    plt.ylabel("Amplitude")
+    plt.title(label)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
 def plotComparison(GT_signal, predicted_signal):
     time_len= max(len(GT_signal), len(predicted_signal))
@@ -480,13 +490,14 @@ def plotComparison(GT_signal, predicted_signal):
     plt.legend()
     plt.show()
 
-def plotSignal(signal):
+def plotSignal(signal, title):
     time_len= len(signal)
     time = np.linspace(0, 2.5, time_len)
     plt.figure(figsize=(12, 6))
     plt.plot(time, signal, label='Signal', linestyle='-', color='black')
     plt.ylabel('Blood Pressure (mmHg)')
     plt.xlabel('Time (s)')
+    plt.title(title)
     plt.legend()
     plt.show()
 
