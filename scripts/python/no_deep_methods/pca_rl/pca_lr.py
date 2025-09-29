@@ -178,14 +178,18 @@ def check_aami(y_true, y_pred):
 
 def check_bhs(y_true, y_pred):
     diff = np.abs(y_true - y_pred)
-    p5 = np.sum(diff < 5) / len(diff) * 100
-    p10 = np.sum(diff < 10) / len(diff) * 100
-    p15 = np.sum(diff < 15) / len(diff) * 100
-    grade = 'C'
+    p5 = np.mean(diff < 5) * 100
+    p10 = np.mean(diff < 10) * 100
+    p15 = np.mean(diff < 15) * 100
     if p5 >= 60 and p10 >= 85 and p15 >= 95:
-        grade = 'A'
+        grade = "A"
     elif p5 >= 50 and p10 >= 75 and p15 >= 90:
-        grade = 'B'
+        grade = "B"
+    elif p5 >= 40 and p10 >= 65 and p15 >= 85:
+        grade = "C"
+    else:
+        grade = "D"
+
     return grade, p5, p10, p15
 
 def evaluate_metrics(y_true, y_pred):

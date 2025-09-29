@@ -49,7 +49,7 @@ def train_models(config, extract_data=False,):
 
     in_channels = x_train_torch.shape[1]
     base_model = UNet(True,
-                      in_channel=in_channels,
+                      out_channel=in_channels,
                       output_channels=output_channels,
                       backbone_name=backbone_name,
                       pretrained=pretrained,
@@ -94,7 +94,7 @@ def train_models(config, extract_data=False,):
     plot_train(history)
 
     # test
-    model.load_state_dict(torch.load(checkpoint_path)['model_state_dict'], strict=False)
+    model.load_state_dict(torch.load(checkpoint_path,weights_only=False)['model_state_dict'], strict=False)
     print("\n start testing...\n")
     test_model(model, criterion, test_loader)
 

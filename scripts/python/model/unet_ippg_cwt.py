@@ -1,12 +1,12 @@
 import torch.nn as nn
-from model.resnetxt_blocks import create_resnext_network
+from model.resnetxt_blocks import create_resnext_network, x
 from model.decoder_blocks import create_decoder_network
 from model.backbones import Backbones
-
+import torch
 
 class UNet(nn.Module):
-    def __init__(self,backbone: bool, in_channel, cardinality=None, n_blocks1=None, n_blocks2=None, n_blocks3=None, n_blocks4=None,
-                 output_channels=None, backbone_name=None, pretrained=True, freeze_backbone=True):
+    def __init__(self,backbone: bool, out_channel, cardinality=None, n_blocks1=None, n_blocks2=None, n_blocks3=None, n_blocks4=None,
+                 output_channels=None, backbone_name=None, pretrained=True, freeze_backbone=False):
         super(UNet, self).__init__()
         self.backbone = backbone
         self.pretrained = pretrained
@@ -29,14 +29,19 @@ class UNet(nn.Module):
 
 
         self.output_channels = output_channels
+        # Set Decoder network
+        dummy_input = torch.zeros(1, 3, 256, 256)
+        with torch.no_grad():
+            _ = self.backbone(dummy_input)
+            encoder_outputs = self.backbone.get_encoder_outputs()
 
         self.decoder_blocks = create_decoder_network(
+            encoder_channel_list=[e.shape[1] for e in encoder_outputs],
             output_channels_list=self.output_channels
         )
 
         # Final convolution layer
-        self.final_conv = nn.Conv2d(self.output_channels[4], in_channel, kernel_size=(3, 3), padding=1)
-        self.sigmoid = nn.Sigmoid()
+        self.final_conv = nn.Conv2d(self.output_channels[4], out_channel, kernel_size=(3, 3), padding=1)
 
     def forward(self, x):
         if self.backbone:
@@ -50,17 +55,11 @@ class UNet(nn.Module):
             x = self.resnet_blocks(x)
             encoder_outputs = self.resnet_blocks.get_skips()
 
-
-        # Set Decoder network
-        self.decoder_blocks.set_decoder_input(
-            input_channels=x.shape[1],
-            encoders_outputs=encoder_outputs
-        )
         # Pass through Decoder blocks
         decoder_output = self.decoder_blocks(x,encoder_outputs)
 
         x = self.final_conv(decoder_output)
-        return self.sigmoid(x)
+        return x
 
 
 class ModelAdapter(nn.Module):

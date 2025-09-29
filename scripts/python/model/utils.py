@@ -328,18 +328,21 @@ def split_data(data_path):
     return x_train, x_test, x_val, y_train, y_test, y_val
 
 
-def compute_batch_metrics(outputs, targets, criterion):
+def compute_batch_metrics(outputs, targets, criterion, eps = 1e-8, normalize= True):
 
     # sqrt(Re² + Im²)
-    outputs_mod = torch.sqrt(outputs[:, 0] ** 2 + outputs[:, 1] ** 2)  # [B, H, W]
-    targets_mod = torch.sqrt(targets[:, 0] ** 2 + targets[:, 1] ** 2)  # [B, H, W]
+    outputs_mod = torch.sqrt(outputs[:, 0] ** 2 + outputs[:, 1] ** 2 + eps)  # [B, H, W]
+    targets_mod = torch.sqrt(targets[:, 0] ** 2 + targets[:, 1] ** 2 + eps)  # [B, H, W]
+
+    if normalize:
+        max_val = torch.max(targets_mod)
+        max_val = max_val if max_val > 0 else 1.0
+        outputs_mod = outputs_mod / max_val
+        targets_mod = targets_mod / max_val
 
     loss = criterion(outputs_mod, targets_mod)
 
-    outputs_flat = outputs_mod.detach().cpu().numpy().flatten()
-    targets_flat = targets_mod.detach().cpu().numpy().flatten()
-
-    mae = mean_absolute_error(targets_flat, outputs_flat)
+    mae = torch.mean(torch.abs(outputs_mod - targets_mod)).item()
 
     return loss, mae
 

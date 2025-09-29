@@ -56,7 +56,7 @@ class DecoderBlock(nn.Module):
 
 
 class DecoderNetwork(nn.Module):
-    def __init__(self, output_channels_list):
+    def __init__(self, encoder_channels_list, output_channels_list):
         """
         Create the Decoder network of five :class:'DecoderBlock'
         :param output_channels_list: an array with the output channels of each decoder block
@@ -65,15 +65,24 @@ class DecoderNetwork(nn.Module):
 
         # Validate the input
         assert len(output_channels_list) == 5, "There must be 5 output channels specified."
+        assert len(encoder_channels_list) == 5, "There must be 5 encoder outputs specified."
 
         self.input_channels = None
         self.output_channels_list = output_channels_list
 
         # Create the decoder blocks
-        self.decoder1 = None
-        self.decoder2 = None
-        self.decoder3 = None
-        self.decoder4 = None
+
+        self.input_channels = encoder_channels_list[4]
+        output_channels_list = self.output_channels_list
+
+        self.decoder1 = DecoderBlock(self.input_channels, output_channels_list[0],
+                                     encoder_channels=encoder_channels_list[3])
+        self.decoder2 = DecoderBlock(output_channels_list[0], output_channels_list[1],
+                                     encoder_channels=encoder_channels_list[2])
+        self.decoder3 = DecoderBlock(output_channels_list[1], output_channels_list[2],
+                                     encoder_channels=encoder_channels_list[1])
+        self.decoder4 = DecoderBlock(output_channels_list[2], output_channels_list[3],
+                                     encoder_channels=encoder_channels_list[0])
 
         self.decoder5 = DecoderBlock(self.output_channels_list[3], self.output_channels_list[4], use_concat=False)
 
@@ -113,13 +122,15 @@ class DecoderNetwork(nn.Module):
                                      encoder_channels=encoders_outputs[0].shape[1])
 
 
-def create_decoder_network(output_channels_list):
+def create_decoder_network(encoder_channel_list, output_channels_list):
     """
     Creation of a decoder network
+    :param encoder_channel_list: an array with the input channels of each decoder block
     :param output_channels_list: an array with the output channels of each decoder block
     :return: (torch.Tensor) decoder network final output
     """
-    return DecoderNetwork(output_channels_list=output_channels_list)
+    return DecoderNetwork(encoder_channels_list=encoder_channel_list,
+                          output_channels_list=output_channels_list)
 
 
 # Example of how to instantiate and use the DecoderNetwork
