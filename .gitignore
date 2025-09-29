@@ -33,3 +33,11 @@ scripts/python/train/result/test_results.csv
 scripts/python/train/result/weights.pth
 scripts/python/dataset/data_POS2.h5
 scripts/python/generation.py
+scripts/python/train/result4/aami_standards.csv
+scripts/python/main.py
+scripts/python/main.py
+scripts/python/train/result4/all_test_results.csv
+scripts/python/train/result4/bhs_standards.csv
+scripts/python/train/result4/history.csv
+scripts/python/train/result4/model.json
+scripts/python/train/result4/test_data_pos.csv
