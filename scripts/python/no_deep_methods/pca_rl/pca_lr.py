@@ -140,7 +140,8 @@ def extract_features(rppg, bp_segment, fs=30):
                              for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
         time_fall = np.mean([np.argmin(rppg[peaks[i]:peaks[i + 1]]) / fs
                              for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
-        area = np.mean([np.sum(rppg[peaks[i]:peaks[i + 1]]) for i in range(len(peaks) - 1)]) if len(peaks) > 1 else 0
+        area = np.mean([np.sum(rppg[peaks[i]:peaks[i + 1]]) for i in range(len(peaks) - 1)]) if len(
+            peaks) > 1 else 0
 
     # --- SBP/DBP of BP ---
     if len(bp_segment) < 2:
@@ -150,11 +151,14 @@ def extract_features(rppg, bp_segment, fs=30):
         bp_peaks, _ = sps.find_peaks(bp_segment, distance=fs * 0.5)
         sbp_values = bp_segment[bp_peaks] if len(bp_peaks) > 0 else [np.max(bp_segment)]
         dbp_values = [np.min(bp_segment[bp_peaks[i]:bp_peaks[i + 1]]) for i in range(len(bp_peaks) - 1)] \
-                     if len(bp_peaks) > 1 else [np.min(bp_segment)]
+            if len(bp_peaks) > 1 else [np.min(bp_segment)]
         SBP = np.mean(sbp_values)
         DBP = np.mean(dbp_values)
 
     features = [np.mean(intervals), hr, amp, slope, time_rise, time_fall, area]
+
+
+
     return features, SBP, DBP
 
 
@@ -261,10 +265,11 @@ def execute(conf, data_path):
     bp_segment = [np.array(bp) for bp in bp_segment]
 
     fs = 25
-    feats, SBP, DBP = extract_features(rppg, bp_segment, fs)
-    X_feats.append(feats)
-    y_sbp.append(SBP)
-    y_dbp.append(DBP)
+    for r,bp in zip(rppg, bp_segment):
+        feats, SBP, DBP = extract_features(r, bp, fs)
+        X_feats.append(feats)
+        y_sbp.append(SBP)
+        y_dbp.append(DBP)
 
     '''
     # --- Salvataggio dati intermedi ---
@@ -312,7 +317,7 @@ def execute(conf, data_path):
 
 
 if __name__ == "__main__":
-    data_path = "pca_lr_dataset.csv"
+    data_path = "pca_lr_dataset2.csv"
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
