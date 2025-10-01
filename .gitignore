@@ -64,3 +64,6 @@ scripts/python/main.py
 scripts/python/main.py
 scripts/python/main.py
 scripts/python/generation3.py
+scripts/python/generation_result/generation3.py
+scripts/python/generation_result/generation.py
+scripts/python/generation_result/generation2.py
