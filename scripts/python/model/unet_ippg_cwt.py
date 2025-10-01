@@ -1,5 +1,5 @@
 import torch.nn as nn
-from model.resnetxt_blocks import create_resnext_network, x
+from model.resnetxt_blocks import create_resnext_network
 from model.decoder_blocks import create_decoder_network
 from model.backbones import Backbones
 import torch
