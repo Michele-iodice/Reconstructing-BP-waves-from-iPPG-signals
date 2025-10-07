@@ -335,8 +335,8 @@ def compute_batch_metrics(outputs, targets, criterion, eps = 1e-8, normalize= Tr
     targets_mod = torch.sqrt(targets[:, 0] ** 2 + targets[:, 1] ** 2 + eps)  # [B, H, W]
 
     if normalize:
-        max_val = torch.max(targets_mod)
-        max_val = max_val if max_val > 0 else 1.0
+        max_val = torch.max(targets_mod, dim=(1, 2), keepdim=True)[0]
+        max_val = torch.clamp(max_val, min=eps)
         outputs_mod = outputs_mod / max_val
         targets_mod = targets_mod / max_val
 
