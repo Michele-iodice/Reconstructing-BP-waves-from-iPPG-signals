@@ -67,3 +67,10 @@ scripts/python/generation3.py
 scripts/python/generation_result/generation3.py
 scripts/python/generation_result/generation.py
 scripts/python/generation_result/generation2.py
+scripts/python/dataset/data_POS3.h5
+scripts/python/generation_result/CHROM_history.csv
+scripts/python/generation_result/final_results/CHROM_history.csv
+scripts/python/generation_result/final_results/CHROM_history2.csv
+scripts/python/generation_result/final_results/final_test_CHROM.csv
+*.csv
+scripts/python/generation_result/generation4.py
