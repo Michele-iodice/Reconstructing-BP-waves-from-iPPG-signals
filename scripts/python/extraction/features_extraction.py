@@ -86,7 +86,7 @@ def extract_feature_on_dataset(conf,dataset_path):
             print('videoFileName: ', videoFileName)
             subjectId = getSubjectId(videoFileName)
             sex = getSex(subjectId)
-            sigEX, timesES = extract_Sig(videoFileName, conf, method=conf.uNetdict['rppg_method'])
+            sigEX, timesES = extract_Sig(videoFileName, conf, method=conf.sigdict['rppg_method'])
             if sigEX is None:
                 print('\nError:No signal extracted.')
                 print('\nDiscarded video.')
@@ -112,20 +112,38 @@ def extract_feature_on_video(video, bp, dataset_path, conf):
         """
 
     with h5py.File(dataset_path, "a") as f:
-        fname = video
+        # GT
         sigGT = BP4D.readSigfile(BP4D, bp)
         bpGT = sigGT.getSig()
-        sig_bp = post_filtering(bpGT[0], detrend=1, fps=np.int32(conf.uNetdict['frameRate']))
-        cwt_bp, sig_bp_windows = sigGT.getCWT(sig_bp, range_freq=[0.6, 4.5], num_scales=256, overlap=50)
-        subjectId = getSubjectId(fname)
+        cwt_bp, sig_bp_windows = sigGT.getCWT(bpGT[0],
+                                              range_freq=[0.6, 4.5],
+                                              num_scales=256,
+                                              winsize=np.float32(np.float32(conf.sigdict['winsize'])),
+                                              overlap=np.float32(conf.sigdict['stride']),
+                                              fps=np.int32(conf.sigdict['SIG_SampleRate']))
+
+        # Videos
+        videoFileName = video
+        print('videoFileName: ', videoFileName)
+        subjectId = getSubjectId(videoFileName)
         sex = getSex(subjectId)
-        sigEX = extract_Sig(fname, conf, method=conf.uNetdict['rppg_method'])
-        cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX, range_freq=[0.6, 4.5], num_scales=256, nan_threshold=0.35,
+        sigEX, timesES = extract_Sig(videoFileName, conf, method=conf.sigdict['rppg_method'])
+        if sigEX is None:
+            print('\nError:No signal extracted.')
+            print('\nDiscarded video.')
+            return False
+
+        cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,
+                                                   range_freq=[0.6, 4.5],
+                                                   num_scales=256,
+                                                   fps=np.int32(conf.uNetdict['frameRate']),
+                                                   nan_threshold=0.35,
                                                    verbose=True)
 
         for i in range(min(len(cwt_ippg), len(cwt_bp))):
             group_id = f"{subjectId}_{i}"
-            save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows, sig_bp_windows, cwt_ippg, cwt_bp)
+            save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i],
+                              cwt_bp[i])
 
 
     return True
@@ -133,5 +151,3 @@ def extract_feature_on_video(video, bp, dataset_path, conf):
 # Example usage
 # data = extract_feature_on_dataset(config)
 # data.to_csv(data_path, index=False)
-
-# signal_to_cwt(green_signal, overlap=50, norm=1, recover=0)
