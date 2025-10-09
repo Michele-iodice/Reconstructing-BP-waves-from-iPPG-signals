@@ -1,3 +1,4 @@
+import joblib
 import numpy as np
 import scipy.signal as sps
 import cv2
@@ -314,10 +315,14 @@ def execute(conf, data_path):
     results.to_csv('pcalr_results.csv', index=False)
     print(results)
 
+    joblib.dump(poly, "pca_lr_poly.pkl")
+    joblib.dump(lr_sbp, "pca_lr_sbp.pkl")
+    joblib.dump(lr_dbp, "pca_lr_dbp.pkl")
+
 
 
 if __name__ == "__main__":
-    data_path = "pca_lr_dataset2.csv"
+    data_path = "pca_lr_dataset.csv"
     config = Configuration(
         'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 

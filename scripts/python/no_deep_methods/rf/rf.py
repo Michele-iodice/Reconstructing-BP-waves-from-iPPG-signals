@@ -1,3 +1,4 @@
+import joblib
 import pandas as pd
 import numpy as np
 from scipy.signal import find_peaks
@@ -166,6 +167,9 @@ def train_rf_evaluate(X, y):
     y_pred = model.predict(X_test)
 
     metrics = evaluate(np.array(y_test), y_pred)
+
+    joblib.dump(model, f"rf_model.pkl")
+    joblib.dump(sc_X, f"rf_scaler.pkl")
     return metrics, model
 
 # -------------------------
@@ -249,5 +253,5 @@ def execute(data_path):
 
 
 if __name__ == "__main__":
-    data_path = "C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_POS2.h5"
+    data_path = "D:/iPPGtoBP/dataset_extracted/data_POS2.h5"
     execute(data_path)

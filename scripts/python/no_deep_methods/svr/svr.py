@@ -1,3 +1,4 @@
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.svm import SVR
@@ -180,7 +181,10 @@ def execute(data_path):
     results.to_csv("svr_results.csv", index=False)
     print(results)
 
+    joblib.dump(svr_sp, "svr_sp_model.pkl")
+    joblib.dump(svr_dp, "svr_dp_model.pkl")
+
 
 if __name__ == "__main__":
-    data_path ="C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/dataset/data_POS2.h5"
+    data_path ="D:/iPPGtoBP/dataset_extracted/data_POS2.h5"
     execute(data_path)
