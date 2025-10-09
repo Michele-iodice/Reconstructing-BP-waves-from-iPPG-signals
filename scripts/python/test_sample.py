@@ -11,6 +11,7 @@ import torch
 from no_deep_methods.rf.rf import extract_features as rf_extract_features
 from no_deep_methods.svr.svr import extract_features as svr_extract_features
 from no_deep_methods.svr.svr import segment_beats
+from extraction.features_extraction import extract_feature_on_video
 
 # --- CONFIGURAZIONE ---
 videoFilename = "D:/datasetBP4D+/F001/T1/vid.avi"
@@ -20,8 +21,8 @@ config = Configuration(
     'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
 
 # --- ESTRAZIONE FEATURE ---
-#feature = extract_feature_on_video(videoFilename, bp_filename, config)
-feature_file = "features_BP4D.h5"
+feature = extract_feature_on_video(videoFilename, bp_filename, config)
+'''feature_file = "features_BP4D.h5"
 
 feature = []
 with h5py.File(feature_file, 'r') as f:
@@ -34,7 +35,7 @@ with h5py.File(feature_file, 'r') as f:
             'CWT_BP': np.array(grp['CWT_BP'])
         }
         feature.append(row)
-feature = pd.DataFrame(feature)
+feature = pd.DataFrame(feature)'''
 
 # --- MODELLI ---
 # iPPG2BP
