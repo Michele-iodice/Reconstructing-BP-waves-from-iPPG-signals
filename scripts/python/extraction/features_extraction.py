@@ -6,6 +6,7 @@ from extraction.signal_to_cwt import signal_to_cwt, plotCWT
 from my_pyVHR.datasets.dataset import datasetFactory
 from dataset.bp4d import BP4D
 from extraction.sig_extractor import extract_Sig, post_filtering
+import pandas as pd
 
 
 def getSubjectId(videoFilename):
@@ -104,49 +105,64 @@ def extract_feature_on_dataset(conf,dataset_path):
                 save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i], cwt_bp[i])
 
 
-def extract_feature_on_video(video, bp, dataset_path, conf):
+def extract_feature_on_video(video, bp, conf):
     """
-        this function extract the data feature from a video.
-        :param: video: the path of the video to compute
-        :return: the dataframe 'data' with columns: CWT, sex, BP ground truth, and subject_id
-        """
+    This function extracts data features from a video.
+    :param video: path of the video to compute
+    :return: pandas DataFrame with columns:
+             ['subject_id', 'sex', 'CWT_IPPG', 'CWT_BP', 'sig_IPPG', 'sig_BP']
+    """
 
-    with h5py.File(dataset_path, "a") as f:
-        # GT
-        sigGT = BP4D.readSigfile(BP4D, bp)
-        bpGT = sigGT.getSig()
-        cwt_bp, sig_bp_windows = sigGT.getCWT(bpGT[0],
-                                              range_freq=[0.6, 4.5],
-                                              num_scales=256,
-                                              winsize=np.float32(np.float32(conf.sigdict['winsize'])),
-                                              overlap=np.float32(conf.sigdict['stride']),
-                                              fps=np.int32(conf.sigdict['SIG_SampleRate']))
+    data_records = []  # lista per salvare i dati temporaneamente
 
-        # Videos
-        videoFileName = video
-        print('videoFileName: ', videoFileName)
-        subjectId = getSubjectId(videoFileName)
-        sex = getSex(subjectId)
-        sigEX, timesES = extract_Sig(videoFileName, conf, method=conf.sigdict['rppg_method'])
-        if sigEX is None:
-            print('\nError:No signal extracted.')
-            print('\nDiscarded video.')
-            return False
+    # GT
+    sigGT = BP4D.readSigfile(BP4D, bp)
+    bpGT = sigGT.getSig()
+    cwt_bp, sig_bp_windows = sigGT.getCWT(
+        bpGT[0],
+        range_freq=[0.6, 4.5],
+        num_scales=256,
+        winsize=np.float32(conf.sigdict['winsize']),
+        overlap=np.float32(conf.sigdict['stride']),
+        fps=np.int32(conf.sigdict['SIG_SampleRate'])
+    )
 
-        cwt_ippg, sig_ippg_windows = signal_to_cwt(sigEX,
-                                                   range_freq=[0.6, 4.5],
-                                                   num_scales=256,
-                                                   fps=np.int32(conf.uNetdict['frameRate']),
-                                                   nan_threshold=0.35,
-                                                   verbose=True)
+    # Videos
+    videoFileName = video
+    print('videoFileName:', videoFileName)
+    subjectId = getSubjectId(videoFileName)
+    sex = getSex(subjectId)
 
-        for i in range(min(len(cwt_ippg), len(cwt_bp))):
-            group_id = f"{subjectId}_{i}"
-            save_subject_data(f, group_id, subjectId, sex, sig_ippg_windows[i], sig_bp_windows[i], cwt_ippg[i],
-                              cwt_bp[i])
+    sigEX, timesES = extract_Sig(videoFileName, conf, method=conf.sigdict['rppg_method'])
+    if sigEX is None:
+        print('\nError: No signal extracted.')
+        print('\nDiscarded video.')
+        return pd.DataFrame()  # ritorna un dataframe vuoto
 
+    cwt_ippg, sig_ippg_windows = signal_to_cwt(
+        sigEX,
+        range_freq=[0.6, 4.5],
+        num_scales=256,
+        fps=np.int32(conf.uNetdict['frameRate']),
+        nan_threshold=0.35,
+        verbose=True
+    )
 
-    return True
+    # Costruzione del dataframe
+    for i in range(min(len(cwt_ippg), len(cwt_bp))):
+        data_records.append({
+            "subject_id": subjectId,
+            "sex": sex,
+            "sig_IPPG": sig_ippg_windows[i],
+            "sig_BP": sig_bp_windows[i],
+            "CWT_IPPG": cwt_ippg[i],
+            "CWT_BP": cwt_bp[i]
+        })
+
+    # Crea il DataFrame finale
+    df = pd.DataFrame(data_records)
+
+    return df
 
 # Example usage
 # data = extract_feature_on_dataset(config)

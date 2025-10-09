@@ -4,11 +4,11 @@ import pandas as pd
 from sklearn.svm import SVR
 from sklearn.model_selection import KFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from scipy.signal import find_peaks
+from sklearn.multioutput import MultiOutputRegressor
+from scipy.signal import find_peaks, butter, filtfilt
 from collections import defaultdict
-import h5py
 from statistics import mode
-from scipy.signal import butter, filtfilt
+import h5py
 
 # -----------------------------------
 # SUPPORT VECTOR REGRESSOR METHOD
@@ -43,7 +43,6 @@ def extract_features(ppg_segment, bp_segment):
 
     return features
 
-
 def segment_beats(ppg, bp):
     peaks, _ = find_peaks(ppg, distance=50)
     segments = []
@@ -52,11 +51,10 @@ def segment_beats(ppg, bp):
         segments.append((ppg[start:end], bp[start:end]))
     return segments
 
-
-def create_feature_dataset(ppgs,bps):
+def create_feature_dataset(ppgs, bps):
     all_features = []
-    end=min(len(ppgs),len(bps))
-    for idx in range(0,end):
+    end = min(len(ppgs), len(bps))
+    for idx in range(end):
         ppg = ppgs[idx]
         bp = bps[idx]
         segments = segment_beats(ppg, bp)
@@ -69,15 +67,13 @@ def create_feature_dataset(ppgs,bps):
     y_dp = feature_df['DP'].values
     return X, y_sp, y_dp
 
-
-
 def evaluate_metrics(y_true, y_pred):
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     errors = y_true - y_pred
     me = np.mean(errors)
     sde = np.std(errors, ddof=1)
-    abs_errors = np.abs(y_true - y_pred)
+    abs_errors = np.abs(errors)
 
     # AAMI
     aami_mae = me < 5
@@ -110,36 +106,37 @@ def evaluate_metrics(y_true, y_pred):
         "Perc_<15": p15
     }
 
-
-# Funzione per training SVR con K-Fold CV
-def train_svr_cv(X, y, C=1.1, kernel='rbf', gamma=0.1, epsilon=0.05, n_splits=5, random_state=123):
+# Funzione per training SVR multitarget con K-Fold CV
+def train_svr_cv_multi(X, y_multi, C=1.1, kernel='rbf', gamma=0.1, epsilon=0.05, n_splits=5, random_state=123):
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    all_metrics_sp, all_metrics_dp = [], []
 
-    all_metrics = []
     for train_idx, test_idx in kf.split(X):
         X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-        y_train, y_test = y[train_idx], y[test_idx]
+        y_train, y_test = y_multi[train_idx], y_multi[test_idx]
 
-        model = SVR(C=C, kernel=kernel, gamma=gamma, epsilon=epsilon)
+        svr = SVR(C=C, kernel=kernel, gamma=gamma, epsilon=epsilon)
+        model = MultiOutputRegressor(svr)
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 
-        metrics = evaluate_metrics(y_test, y_pred)
-        all_metrics.append(metrics)
+        metrics_sp = evaluate_metrics(y_test[:, 0], y_pred[:, 0])
+        metrics_dp = evaluate_metrics(y_test[:, 1], y_pred[:, 1])
 
-    avg_metrics = {}
-    for key in all_metrics[0].keys():
-        values = [m[key] for m in all_metrics if m[key] is not None]
+        all_metrics_sp.append(metrics_sp)
+        all_metrics_dp.append(metrics_dp)
 
-        if isinstance(values[0], (int, float, np.float64, np.float32)):
-            avg_metrics[key] = float(np.mean(values))
-        elif isinstance(values[0], str):
-            avg_metrics[key] = mode(values)  # maggioranza
-        else:
-            continue
+    def avg_metrics(all_metrics):
+        avg = {}
+        for key in all_metrics[0].keys():
+            values = [m[key] for m in all_metrics if m[key] is not None]
+            if isinstance(values[0], (int, float, np.float64, np.float32)):
+                avg[key] = float(np.mean(values))
+            elif isinstance(values[0], str):
+                avg[key] = mode(values)
+        return avg
 
-    return avg_metrics, model
-
+    return avg_metrics(all_metrics_sp), avg_metrics(all_metrics_dp), model
 
 def create_results_table(metrics_sp, metrics_dp):
     results = pd.DataFrame([
@@ -150,7 +147,6 @@ def create_results_table(metrics_sp, metrics_dp):
 
 def execute(data_path):
     with h5py.File(data_path, "r") as f:
-
         subject_to_groups = defaultdict(list)
         for group_id in f:
             subject_id = f[group_id].attrs["subject_id"]
@@ -169,22 +165,20 @@ def execute(data_path):
                 bp_cwt = f[gid]["bp"][:]
                 X.append(ippg_cwt)
                 Y.append(bp_cwt)
-
             return np.array(X), np.array(Y)
 
         x, y = load_data(ids)
 
-    X, y_sp, y_dp = create_feature_dataset(x,y)
-    metrics_sp, svr_sp = train_svr_cv(X, y_sp)
-    metrics_dp, svr_dp = train_svr_cv(X, y_dp)
+    X, y_sp, y_dp = create_feature_dataset(x, y)
+    y_multi = np.column_stack([y_sp, y_dp])
+
+    metrics_sp, metrics_dp, model = train_svr_cv_multi(X, y_multi)
     results = create_results_table(metrics_sp, metrics_dp)
     results.to_csv("svr_results.csv", index=False)
     print(results)
 
-    joblib.dump(svr_sp, "svr_sp_model.pkl")
-    joblib.dump(svr_dp, "svr_dp_model.pkl")
-
+    joblib.dump(model, "svr_model.pkl")
 
 if __name__ == "__main__":
-    data_path ="D:/iPPGtoBP/dataset_extracted/data_POS2.h5"
+    data_path = "D:/iPPGtoBP/dataset_extracted/data_POS2.h5"
     execute(data_path)

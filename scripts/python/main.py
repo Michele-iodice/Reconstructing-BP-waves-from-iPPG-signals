@@ -1,5 +1,21 @@
+import csv
+
 import numpy as np
 import matplotlib.pyplot as plt
+
+from config import Configuration
+from extraction.features_extraction import extract_feature_on_video
+from model.utils import plot_train
+'''videoFilename = "D:/datasetBP4D+/F001/T1/vid.avi"
+bp_filename = "D:/datasetBP4D+/F001/T1/BP_mmHg.txt"
+config = Configuration(
+        'C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/config.cfg')
+
+
+feature= extract_feature_on_video(videoFilename, bp_filename,"scripts/python/dataset/data.h5",config)
+'''
+history= csv.reader(open('C:/Users/Utente/Documents/GitHub/Reconstructing-BP-waves-from-iPPG-signals/scripts/python/train/result4/POS_history.csv','r'), delimiter=',')
+plot_train(history)
 '''# ===============================
 # Dati MAE e RMSE per ogni studio
 # ===============================

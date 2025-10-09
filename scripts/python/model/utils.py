@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error, mean_squared_error
 import pandas as pd
 from tqdm import tqdm
 from scipy.signal import find_peaks
@@ -166,6 +166,8 @@ def test_model(model, criterion, test_loader):
     print("\n start metrics test...\n")
     metrics_bar = tqdm(zip(all_target, all_prediction), total=len(all_prediction), desc="Metrics Test")
     nan_metrics = 0
+    bp_signals=[]
+    pred_signals=[]
     for target, prediction in metrics_bar:
         outputs_np = prediction.cpu().numpy()
         targets_np = target.cpu().numpy()
@@ -176,7 +178,8 @@ def test_model(model, criterion, test_loader):
 
             bp_pred = inverse_cwt(cwt_pred, f_min=0.6, f_max=4.5)
             bp_true = inverse_cwt(cwt_true, f_min=0.6, f_max=4.5)
-
+            bp_signals.append(bp_true)
+            pred_signals.append(bp_pred)
             sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
             sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
 
@@ -188,6 +191,7 @@ def test_model(model, criterion, test_loader):
             all_dbp_true.append(dbp_true)
             all_map_true.append(map_true)
 
+    plot_best_and_mid_quality(bp_signals, pred_signals, fs=100)
     results_bhs = test_bhs_standards(
         DBP_true=np.array(all_dbp_true), DBP_pred=np.array(all_dbp_pred),
         MAP_true=np.array(all_map_true), MAP_pred=np.array(all_map_pred),
@@ -218,6 +222,59 @@ def test_model(model, criterion, test_loader):
     })
     df_test.to_csv('result/test_data_pos.csv', index=False)
 
+def plot_best_and_mid_quality(bp_real, bp_pred, fs=125, metric="mse"):
+    """
+    bp_real, bp_pred: liste di array numpy (stessa lunghezza)
+    fs: frequenza di campionamento (per asse del tempo)
+    metric: "mse" o "corr"
+    """
+
+    assert len(bp_real) == len(bp_pred), "Le liste devono avere la stessa lunghezza"
+    n = len(bp_real)
+
+    # Calcola errore o correlazione
+    if metric == "mse":
+        scores = np.array([np.mean((r - p) ** 2) for r, p in zip(bp_real, bp_pred)])
+        best_idx = np.argmin(scores)
+        worst_idx = np.argmax(scores)
+        sort_idx = np.argsort(scores)
+        mid_idx = sort_idx[int(0.75 * n)]  # predizione 'mediocre'
+    elif metric == "corr":
+        scores = np.array([np.corrcoef(r, p)[0, 1] for r, p in zip(bp_real, bp_pred)])
+        best_idx = np.argmax(scores)
+        worst_idx = np.argmin(scores)
+        sort_idx = np.argsort(scores)
+        mid_idx = sort_idx[int(0.25 * n)]  # predizione 'mediocre'
+    else:
+        raise ValueError("Metric deve essere 'mse' o 'corr'.")
+
+    # Asse del tempo
+    t_best = np.arange(len(bp_real[best_idx])) / fs
+    t_mid = np.arange(len(bp_real[mid_idx])) / fs
+
+    # Plot - alta qualità
+    plt.figure(figsize=(10,6))
+    plt.subplot(2,1,1)
+    plt.plot(t_best, bp_pred[best_idx], 'b', label='Predicted')
+    plt.plot(t_best, bp_real[best_idx], 'r--', label='Ground Truth')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Blood Pressure (mmHg)')
+    plt.title(f'Alta qualità (MSE={scores[best_idx]:.4f})')
+    plt.legend()
+    plt.grid(True)
+
+    # Plot - qualità media (errore visibile)
+    plt.subplot(2,1,2)
+    plt.plot(t_mid, bp_pred[mid_idx], 'b', label='Predicted')
+    plt.plot(t_mid, bp_real[mid_idx], 'r--', label='Ground Truth')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Blood Pressure (mmHg)')
+    plt.title(f'Qualità inferiore (MSE={scores[mid_idx]:.4f})')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
 
 
 def test_bhs_standards(DBP_true, DBP_pred, MAP_true, MAP_pred, SBP_true, SBP_pred):
@@ -572,3 +629,8 @@ def bland_altman_plot(ground_truth, predictions, title, range_limits=None):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+def evaluate(y_true, y_pred):
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    return mae, rmse
