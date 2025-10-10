@@ -166,8 +166,6 @@ def test_model(model, criterion, test_loader):
     print("\n start metrics test...\n")
     metrics_bar = tqdm(zip(all_target, all_prediction), total=len(all_prediction), desc="Metrics Test")
     nan_metrics = 0
-    bp_signals=[]
-    pred_signals=[]
     for target, prediction in metrics_bar:
         outputs_np = prediction.cpu().numpy()
         targets_np = target.cpu().numpy()
@@ -178,8 +176,6 @@ def test_model(model, criterion, test_loader):
 
             bp_pred = inverse_cwt(cwt_pred, f_min=0.6, f_max=4.5)
             bp_true = inverse_cwt(cwt_true, f_min=0.6, f_max=4.5)
-            bp_signals.append(bp_true)
-            pred_signals.append(bp_pred)
             sbp_pred, dbp_pred, map_pred = calculate_matrix(bp_pred)
             sbp_true, dbp_true, map_true = calculate_matrix(bp_true)
 
@@ -191,7 +187,6 @@ def test_model(model, criterion, test_loader):
             all_dbp_true.append(dbp_true)
             all_map_true.append(map_true)
 
-    plot_best_and_mid_quality(bp_signals, pred_signals, fs=100)
     results_bhs = test_bhs_standards(
         DBP_true=np.array(all_dbp_true), DBP_pred=np.array(all_dbp_pred),
         MAP_true=np.array(all_map_true), MAP_pred=np.array(all_map_pred),
@@ -391,11 +386,11 @@ def compute_batch_metrics(outputs, targets, criterion, eps = 1e-8, normalize= Tr
     outputs_mod = torch.sqrt(outputs[:, 0] ** 2 + outputs[:, 1] ** 2 + eps)  # [B, H, W]
     targets_mod = torch.sqrt(targets[:, 0] ** 2 + targets[:, 1] ** 2 + eps)  # [B, H, W]
 
-    if normalize:
+    '''if normalize:
         max_val = torch.max(targets_mod, dim=(1, 2), keepdim=True)[0]
         max_val = torch.clamp(max_val, min=eps)
         outputs_mod = outputs_mod / max_val
-        targets_mod = targets_mod / max_val
+        targets_mod = targets_mod / max_val'''
 
     loss = criterion(outputs_mod, targets_mod)
 

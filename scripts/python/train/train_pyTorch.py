@@ -87,12 +87,12 @@ def train_models(config, extract_data=False,):
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     # model summary
-    #summary(model, input_size=x_train_torch[0].shape)
+    summary(model, input_size=x_train_torch[0].shape)
     # training
-    #print("start training...\n")
-    #history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path,
-    #                      VERBOSE=VERBOSE)
-    #plot_train(history)
+    print("start training...\n")
+    history = train_model(model, criterion, optimizer, train_loader, valid_loader, EPOCHS, checkpoint_path,
+                          VERBOSE=VERBOSE)
+    plot_train(history)
 
     # test
     model.load_state_dict(torch.load(checkpoint_path,weights_only=False)['model_state_dict'], strict=False)
