@@ -74,3 +74,13 @@ scripts/python/generation_result/final_results/CHROM_history2.csv
 scripts/python/generation_result/final_results/final_test_CHROM.csv
 *.csv
 scripts/python/generation_result/generation4.py
+scripts/python/bland_altman_testset_plot.py
+scripts/python/main.py
+scripts/python/main.py
+scripts/python/main.py
+scripts/python/models/model.json
+scripts/python/main.py
+scripts/python/models/model.json
+scripts/python/models/weights.pth
+scripts/python/test_sample.py
+scripts/python/models/model.json
