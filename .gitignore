@@ -84,3 +84,5 @@ scripts/python/models/model.json
 scripts/python/models/weights.pth
 scripts/python/test_sample.py
 scripts/python/models/model.json
+scripts/python/main.py
+scripts/python/test_sample.py
