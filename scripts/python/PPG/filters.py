@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import interpolate, sparse
 from scipy.sparse.linalg import spsolve
+from scipy.signal import butter, filtfilt
 
 
 """
@@ -107,6 +108,12 @@ def zscorerange(sig, **kargs):
     std = np.std(x, axis=1, keepdims=True)
     std[std < 1e-6] = 1e-6  # no std=0
     y = (x - mean) / std
-    y = np.clip(y, kargs['minR'], kargs['maxR'])
+    #y = np.clip(y, kargs['minR'], kargs['maxR'])
+    nyq = 0.5 * kargs['fps']
+    low = kargs['minR'] / nyq
+    high = kargs['maxR'] / nyq
+
+    b, a = butter(3, [low, high], btype='band')
+    y = filtfilt(b, a, y)
 
     return y

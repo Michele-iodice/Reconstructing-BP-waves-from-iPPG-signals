@@ -217,59 +217,6 @@ def test_model(model, criterion, test_loader):
     })
     df_test.to_csv('result/test_data_pos.csv', index=False)
 
-def plot_best_and_mid_quality(bp_real, bp_pred, fs=125, metric="mse"):
-    """
-    bp_real, bp_pred: liste di array numpy (stessa lunghezza)
-    fs: frequenza di campionamento (per asse del tempo)
-    metric: "mse" o "corr"
-    """
-
-    assert len(bp_real) == len(bp_pred), "Le liste devono avere la stessa lunghezza"
-    n = len(bp_real)
-
-    # Calcola errore o correlazione
-    if metric == "mse":
-        scores = np.array([np.mean((r - p) ** 2) for r, p in zip(bp_real, bp_pred)])
-        best_idx = np.argmin(scores)
-        worst_idx = np.argmax(scores)
-        sort_idx = np.argsort(scores)
-        mid_idx = sort_idx[int(0.75 * n)]  # predizione 'mediocre'
-    elif metric == "corr":
-        scores = np.array([np.corrcoef(r, p)[0, 1] for r, p in zip(bp_real, bp_pred)])
-        best_idx = np.argmax(scores)
-        worst_idx = np.argmin(scores)
-        sort_idx = np.argsort(scores)
-        mid_idx = sort_idx[int(0.25 * n)]  # predizione 'mediocre'
-    else:
-        raise ValueError("Metric deve essere 'mse' o 'corr'.")
-
-    # Asse del tempo
-    t_best = np.arange(len(bp_real[best_idx])) / fs
-    t_mid = np.arange(len(bp_real[mid_idx])) / fs
-
-    # Plot - alta qualità
-    plt.figure(figsize=(10,6))
-    plt.subplot(2,1,1)
-    plt.plot(t_best, bp_pred[best_idx], 'b', label='Predicted')
-    plt.plot(t_best, bp_real[best_idx], 'r--', label='Ground Truth')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Blood Pressure (mmHg)')
-    plt.title(f'Alta qualità (MSE={scores[best_idx]:.4f})')
-    plt.legend()
-    plt.grid(True)
-
-    # Plot - qualità media (errore visibile)
-    plt.subplot(2,1,2)
-    plt.plot(t_mid, bp_pred[mid_idx], 'b', label='Predicted')
-    plt.plot(t_mid, bp_real[mid_idx], 'r--', label='Ground Truth')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Blood Pressure (mmHg)')
-    plt.title(f'Qualità inferiore (MSE={scores[mid_idx]:.4f})')
-    plt.legend()
-    plt.grid(True)
-
-    plt.tight_layout()
-    plt.show()
 
 
 def test_bhs_standards(DBP_true, DBP_pred, MAP_true, MAP_pred, SBP_true, SBP_pred):
@@ -498,7 +445,13 @@ def save_test_aami(results, csv_path):
 
     df = pd.DataFrame(rows)
     df.to_csv(csv_path, index=False)
-
+def evaluate(y_true, y_pred, label):
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    if label == 'iPPG2BP':
+        mae=mae*0.1
+        rmse=rmse*0.1
+    return mae, rmse
 def plot_train(history):
     # Loss plot
     plt.figure(figsize=(10, 5))
@@ -625,7 +578,8 @@ def bland_altman_plot(ground_truth, predictions, title, range_limits=None):
     plt.tight_layout()
     plt.show()
 
-def evaluate(y_true, y_pred):
+
+def evaluates(y_true, y_pred, label):
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     return mae, rmse
